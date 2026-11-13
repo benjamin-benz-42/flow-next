@@ -4,7 +4,7 @@
 > verdicts and the terminal line stay as workflow.md says; only these reads and calls change.
 
 `bkt` names the repository explicitly: first
-`export ORIGIN_PROJECT="$(git remote get-url origin | sed -E 's#^(https?|ssh|git\+ssh)://[^/]+/##; s#^[^@/]+@[^:]+:##; s#\.git$##; s#/$##')"`
+`export ORIGIN_PROJECT="$(bash "$(dirname "$FLOWCTL")/make-pr-bitbucket.sh" origin-project)"`
 and use `--workspace "${ORIGIN_PROJECT%%/*}" --repo "${ORIGIN_PROJECT#*/}"` (`$WR` below). `$PR` is
 the pull request id, `$HEAD_SHA` the full head SHA and `$BRANCH` the source branch. Before the first
 read, `bash "$(dirname "$FLOWCTL")/make-pr-bitbucket.sh" auth-check`; a failure (bkt missing, logged

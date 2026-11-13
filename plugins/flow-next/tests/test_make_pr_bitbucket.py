@@ -116,6 +116,15 @@ class HelperWriteTests(BitbucketShellCase):
         self.assertEqual((result.returncode, result.stdout.strip()), (0, PR_URL), result.stderr)
         self.assertNotIn("--with-default-reviewers", self.bkt_calls()[0])
 
+    def test_ready_create_passes_no_draft_flag(self):
+        body = self.body_file("Conflict sandbox PR. Safe to decline.")
+        result = self.run_sh([str(HELPER), "pr", "create", "--title", "test: flow-next Bitbucket conflict sandbox",
+                              "--body-file", str(body), "--base", "fn-bb-test/sandbox-base", "--head", "fn-bb-test/pr-4"],
+                             BKT_ANSWERS=answers(recorded("pr-create-ready")))
+        self.assertEqual((result.returncode, result.stdout.strip()),
+                         (0, "https://bitbucket.org/flownext/flownext/pull-requests/33"), result.stderr)
+        self.assertNotIn("--draft", self.bkt_calls()[0])
+
     def test_refused_create_fails_with_bitbuckets_answer(self):
         body = self.body_file("x")
         result = self.run_sh([str(HELPER), "pr", "create", "--title", "nobranch", "--body-file", str(body),
@@ -136,6 +145,19 @@ class HelperWriteTests(BitbucketShellCase):
         ready = self.run_sh([*argv, "--ready"], BKT_ANSWERS=answers(recorded("pr-edit"), recorded("pr-publish")))
         self.assertEqual((ready.returncode, ready.stdout.strip()), (0, PR_URL), ready.stderr)
         self.assertEqual([call[2] for call in self.bkt_calls()], ["edit", "publish"])
+
+
+class OriginProjectTests(BitbucketShellCase):
+    def test_every_supported_origin_form(self):
+        for origin in ("https://bitbucket.org/flownext/flownext.git", "https://bitbucket.org/flownext/flownext.git/",
+                       "https://user@bitbucket.org/flownext/flownext", "git@bitbucket.org:flownext/flownext.git",
+                       "bitbucket.org:flownext/flownext.git", "bb-work:flownext/flownext.git",
+                       "ssh://git@altssh.bitbucket.org:443/flownext/flownext.git"):
+            with self.subTest(origin):
+                result = self.run_sh([str(HELPER), "origin-project"], cwd=self.repo_on("main", origin))
+                self.assertEqual((result.returncode, result.stdout.strip()), (0, PROJECT), result.stderr)
+        bad = self.run_sh([str(HELPER), "origin-project"], cwd=self.repo_on("main", "https://bitbucket.org/flownext"))
+        self.assertEqual(bad.returncode, 1)
 
 
 class OriginBlockTests(BitbucketShellCase):

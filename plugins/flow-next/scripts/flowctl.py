@@ -23816,28 +23816,28 @@ def _gitlab_merge_rows(repo: Path, origin: "ForgeOrigin", branch: str) -> Option
     return rows, files
 
 
-# Bitbucket Cloud pages at 50. DECLINED and SUPERSEDED pull requests are closed.
-_BITBUCKET_PAGELEN = 50
+# Bitbucket Cloud reads, through `bkt` and its active context. DECLINED and SUPERSEDED
+# pull requests are closed. Bitbucket abbreviates commit hashes; every row carries full ones.
 _BITBUCKET_PR_STATES = {"OPEN": "OPEN", "MERGED": "MERGED", "DECLINED": "CLOSED", "SUPERSEDED": "CLOSED"}
-
-
 _BITBUCKET_ROW_PATHS = (("links", "html", "href"), ("source", "branch", "name"), ("source", "commit", "hash"),
                         ("destination", "branch", "name"))
+# Build states: in progress is pending; failed and stopped are red.
+_BITBUCKET_BUILD_RANK = {"SUCCESSFUL": 0, "INPROGRESS": 1, "FAILED": 2, "STOPPED": 2}
 
 
 def _bitbucket_field(value: Any, *path: str) -> Any:
-    """A nested field of a pull-request object, or None when any level is not an object."""
+    """A nested field, or None when any level is not an object."""
     for key in path:
         value = value.get(key) if isinstance(value, dict) else None
     return value
 
 
-def _bkt_get(endpoint: str, params: list, deadline: float) -> Optional[Any]:
-    """One `bkt api` GET through bkt's active context, parsed; None when it failed."""
+def _bkt_get(path: str, params: list, deadline: float) -> Optional[Any]:
+    """One `bkt api` GET, parsed; None when it failed."""
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         return None
-    argv = ["bkt", "api", endpoint] + [arg for param in params for arg in ("-P", param)]
+    argv = ["bkt", "api", path] + [arg for param in params for arg in ("-P", param)]
     try:
         proc = subprocess.run(argv, capture_output=True, text=True, timeout=remaining, check=False)
         return json.loads(proc.stdout) if proc.returncode == 0 else None
@@ -23845,92 +23845,25 @@ def _bkt_get(endpoint: str, params: list, deadline: float) -> Optional[Any]:
         return None
 
 
-def _bitbucket_full_sha(repo: Path, endpoint: str, sha: str, deadline: float) -> Optional[str]:
-    """Bitbucket lists abbreviated hashes: the local clone or the commit endpoint expands one."""
-    local = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}"],
-                           cwd=repo, capture_output=True, text=True, check=False)
-    full = local.stdout.strip() if local.returncode == 0 else ""
-    if not full:
-        commit = _bkt_get(f"{endpoint}/commit/{sha}", [], deadline)
-        full = commit.get("hash") if isinstance(commit, dict) and isinstance(commit.get("hash"), str) else ""
-    return full if re.fullmatch(r"[0-9a-f]{40}", full) and full.startswith(sha) else None
-
-
-def _bkt_next(listed: dict) -> Optional[str]:
-    """The `bkt api` path of a page's `next` link (Bitbucket pages some lists by cursor)."""
-    link = urllib.parse.urlsplit(listed["next"]) if isinstance(listed.get("next"), str) else None
-    if not link or not link.path.startswith("/2.0/"):
-        return None
-    return link.path[len("/2.0"):] + (f"?{link.query}" if link.query else "")
-
-
-def _bitbucket_merged_at(endpoint: str, number: int, deadline: float) -> Optional[tuple]:
-    """(True, when merged pull request `number` merged, or None when no activity names it),
-    or None when the activity could not be read. Bitbucket keeps no merge time on the pull
-    request; `updated_on` moves with every later comment, so it is never one."""
-    path, params = f"{endpoint}/pullrequests/{number}/activity", ["pagelen=50"]
+def _bkt_pages(path: str, params: list, deadline: float, limit: Optional[int] = None) -> Optional[list]:
+    """Every value of a paged listing, following its `next` links (some lists page by cursor).
+    None when a page failed, or when the last page's `size` counts values that never arrived.
+    With `limit`, reading stops once that many arrived: a listing that long may be truncated."""
+    values: list = []
     while True:
         listed = _bkt_get(path, params, deadline)
-        values = listed.get("values") if isinstance(listed, dict) else None
-        if not isinstance(values, list):
+        page = listed.get("values") if isinstance(listed, dict) else None
+        if not isinstance(page, list):
             return None
-        for entry in values:
-            update = entry.get("update") if isinstance(entry, dict) else None
-            # Every later update of a merged pull request also reads `state: MERGED`; the merge
-            # itself is the update whose status changed to fulfilled.
-            if _bitbucket_field(update, "changes", "status", "new") == "fulfilled":
-                return True, update["date"] if isinstance(update.get("date"), str) else None
+        values += page
         if not listed.get("next"):
-            return True, None
-        path, params = _bkt_next(listed), []
-        if path is None:
+            return values if listed.get("size") in (None, len(values)) else None
+        if limit is not None and len(values) >= limit:
+            return values
+        link = urllib.parse.urlsplit(listed["next"]) if isinstance(listed["next"], str) else None
+        if not link or not link.path.startswith("/2.0/"):
             return None
-
-
-def _bitbucket_list_prs(repo: Path, origin: "ForgeOrigin", head: Optional[str], *,
-                        state: str, limit: int) -> Optional[list]:
-    """Pull requests opened from the origin repository itself (a fork's may share the branch name)."""
-    project = origin.project or ""
-    if not re.fullmatch(r"[^/\s\"]+/[^/\s\"]+", project) or (head and re.search(r"[\"\\]", head)):
-        return None
-    endpoint = f"/repositories/{project}"
-    # With a `q` filter Bitbucket ignores the `state` parameter, so the states go into the query.
-    states = list(_BITBUCKET_PR_STATES) if state == "all" else ["OPEN"]
-    query = (f'source.repository.full_name="{project}"' + (f' AND source.branch.name="{head}"' if head else "")
-             + " AND (" + " OR ".join(f'state="{s}"' for s in states) + ")")
-    deadline = time.monotonic() + _FORGE_PROBE_TIMEOUT_S
-    rows, page = [], 1
-    while True:
-        listed = _bkt_get(f"{endpoint}/pullrequests", [f"q={query}", f"pagelen={_BITBUCKET_PAGELEN}",
-                                                       f"page={page}"], deadline)
-        values = listed.get("values") if isinstance(listed, dict) else None
-        if not isinstance(values, list):
-            return None
-        for pr in values:
-            if not (isinstance(pr, dict) and isinstance(pr.get("id"), int)
-                    and isinstance(pr.get("state"), str) and pr["state"] in _BITBUCKET_PR_STATES
-                    and all(isinstance(_bitbucket_field(pr, *path), str) for path in _BITBUCKET_ROW_PATHS)):
-                return None
-            sha = _bitbucket_full_sha(repo, endpoint, pr["source"]["commit"]["hash"], deadline)
-            merged_at = (_bitbucket_merged_at(endpoint, pr["id"], deadline) if pr["state"] == "MERGED"
-                         else (True, None))
-            merge_short = _bitbucket_field(pr, "merge_commit", "hash")
-            merge_commit = (_bitbucket_full_sha(repo, endpoint, merge_short, deadline)
-                            if isinstance(merge_short, str) else None)
-            if sha is None or merged_at is None or (isinstance(merge_short, str) and merge_commit is None):
-                return None
-            rows.append({"number": pr["id"], "url": pr["links"]["html"]["href"],
-                         "state": _BITBUCKET_PR_STATES[pr["state"]],
-                         "headRefName": pr["source"]["branch"]["name"], "headRefOid": sha,
-                         "baseRefName": pr["destination"]["branch"]["name"], "mergedAt": merged_at[1],
-                         "isDraft": pr.get("draft") is True,
-                         **({"mergeCommit": merge_commit} if pr["state"] == "MERGED" else {})})
-        if not listed.get("next"):
-            # The last page closes the listing only when it accounts for every match.
-            return rows if listed.get("size") in (None, len(rows)) else None
-        if len(rows) >= limit:
-            return rows
-        page += 1
+        path, params = link.path[len("/2.0"):] + (f"?{link.query}" if link.query else ""), []
 
 
 def _bitbucket_endpoint(origin: "ForgeOrigin") -> Optional[str]:
@@ -23938,8 +23871,78 @@ def _bitbucket_endpoint(origin: "ForgeOrigin") -> Optional[str]:
     return f"/repositories/{project}" if re.fullmatch(r"[^/\s\"]+/[^/\s\"]+", project) else None
 
 
+def _bitbucket_full_sha(repo: Path, endpoint: str, sha: str, deadline: float) -> Optional[str]:
+    """An abbreviated hash expanded by the local clone, else by the commit endpoint."""
+    local = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}"],
+                           cwd=repo, capture_output=True, text=True, check=False)
+    full = local.stdout.strip() if local.returncode == 0 else _bitbucket_field(
+        _bkt_get(f"{endpoint}/commit/{sha}", [], deadline), "hash")
+    return full if isinstance(full, str) and re.fullmatch(r"[0-9a-f]{40}", full) and full.startswith(sha) else None
+
+
+def _bitbucket_merged_at(endpoint: str, number: int, deadline: float) -> Optional[tuple]:
+    """(True, when pull request `number` merged, or None when its activity never says), or None
+    when the activity is unreadable. Bitbucket keeps no merge time on the pull request, and
+    every update after the merge also reads `state: MERGED`; the merge is the update whose
+    status changed to fulfilled."""
+    activity = _bkt_pages(f"{endpoint}/pullrequests/{number}/activity", ["pagelen=50"], deadline)
+    if activity is None:
+        return None
+    merge = next((entry["update"] for entry in activity
+                  if _bitbucket_field(entry, "update", "changes", "status", "new") == "fulfilled"), None)
+    return True, merge.get("date") if merge and isinstance(merge.get("date"), str) else None
+
+
+def _bitbucket_list_prs(repo: Path, origin: "ForgeOrigin", head: Optional[str], *,
+                        state: str, limit: int) -> Optional[list]:
+    """Pull requests opened from the origin repository itself (a fork's may share the branch name)."""
+    endpoint = _bitbucket_endpoint(origin)
+    if endpoint is None or (head and re.search(r"[\"\\]", head)):
+        return None
+    # With a `q` filter Bitbucket ignores the `state` parameter, so the states go into the query.
+    states = list(_BITBUCKET_PR_STATES) if state == "all" else ["OPEN"]
+    query = (f'source.repository.full_name="{origin.project}"' + (f' AND source.branch.name="{head}"' if head else "")
+             + " AND (" + " OR ".join(f'state="{s}"' for s in states) + ")")
+    deadline = time.monotonic() + _FORGE_PROBE_TIMEOUT_S
+    listed = _bkt_pages(f"{endpoint}/pullrequests", [f"q={query}", "pagelen=50"], deadline, limit)
+    if listed is None:
+        return None
+    rows = []
+    for pr in listed:
+        if not (isinstance(pr, dict) and isinstance(pr.get("id"), int)
+                and isinstance(pr.get("state"), str) and pr["state"] in _BITBUCKET_PR_STATES
+                and all(isinstance(_bitbucket_field(pr, *path), str) for path in _BITBUCKET_ROW_PATHS)):
+            return None
+        row = {"number": pr["id"], "url": pr["links"]["html"]["href"], "state": _BITBUCKET_PR_STATES[pr["state"]],
+               "headRefName": pr["source"]["branch"]["name"],
+               "headRefOid": _bitbucket_full_sha(repo, endpoint, pr["source"]["commit"]["hash"], deadline),
+               "baseRefName": pr["destination"]["branch"]["name"], "mergedAt": None,
+               "isDraft": pr.get("draft") is True}
+        if row["headRefOid"] is None:
+            return None
+        if pr["state"] == "MERGED":
+            merged_at = _bitbucket_merged_at(endpoint, pr["id"], deadline)
+            merge_commit = _bitbucket_field(pr, "merge_commit", "hash")
+            row["mergeCommit"] = (_bitbucket_full_sha(repo, endpoint, merge_commit, deadline)
+                                  if isinstance(merge_commit, str) else None)
+            if merged_at is None or row["mergeCommit"] is None:
+                return None
+            row["mergedAt"] = merged_at[1]
+        rows.append(row)
+    return rows
+
+
+def _bitbucket_participants(endpoint: str, number: int, deadline: float) -> Optional[tuple]:
+    """(pull request, its participants), or None when unreadable."""
+    pr = _bkt_get(f"{endpoint}/pullrequests/{number}", [], deadline)
+    participants = pr.get("participants") if isinstance(pr, dict) else None
+    if not isinstance(participants, list) or not all(isinstance(p, dict) for p in participants):
+        return None
+    return pr, participants
+
+
 def _bitbucket_account(user: Any) -> Optional[str]:
-    """A Bitbucket user's stable identity: its account id (display names and nicknames change)."""
+    """A user's stable identity: its account id (display names and nicknames change)."""
     ident = _bitbucket_field(user, "account_id") or _bitbucket_field(user, "uuid")
     return ident if isinstance(ident, str) and ident else None
 
@@ -23947,33 +23950,21 @@ def _bitbucket_account(user: Any) -> Optional[str]:
 def _bitbucket_merge_rows(repo: Path, origin: "ForgeOrigin", branch: str) -> Optional[tuple]:
     """Merge evidence: the branch's pull requests, and each merged one's changed paths
     (old and new, so a move out of a directory counts there too). None when a read failed."""
-    endpoint = _bitbucket_endpoint(origin)
     rows = _bitbucket_list_prs(repo, origin, branch, state="all", limit=100)
-    if endpoint is None or rows is None or len(rows) >= 100:
+    if rows is None or len(rows) >= 100:
         return None
     deadline = time.monotonic() + _FORGE_PROBE_TIMEOUT_S
     files = {}
     for row in rows:
         if row["state"] != "MERGED":
             continue
-        paths, path, params = [], f"{endpoint}/pullrequests/{row['number']}/diffstat", ["pagelen=100"]
-        while True:
-            listed = _bkt_get(path, params, deadline)
-            values = listed.get("values") if isinstance(listed, dict) else None
-            if not isinstance(values, list):
-                return None
-            for stat in values:
-                names = [_bitbucket_field(stat, side, "path") for side in ("old", "new")]
-                if not isinstance(stat, dict) or not any(isinstance(n, str) for n in names) \
-                        or not all(isinstance(n, (str, type(None))) for n in names):
-                    return None
-                paths += [n for n in dict.fromkeys(names) if n]
-            if not listed.get("next"):
-                break
-            path, params = _bkt_next(listed), []
-            if path is None:
-                return None
-        files[row["number"]] = paths
+        stats = _bkt_pages(f"{_bitbucket_endpoint(origin)}/pullrequests/{row['number']}/diffstat",
+                           ["pagelen=100"], deadline)
+        names = [[_bitbucket_field(stat, side, "path") for side in ("old", "new")] for stat in stats or []]
+        if stats is None or not all(any(isinstance(n, str) for n in pair)
+                                    and all(isinstance(n, (str, type(None))) for n in pair) for pair in names):
+            return None
+        files[row["number"]] = [n for pair in names for n in dict.fromkeys(pair) if n]
     return rows, files
 
 
@@ -23981,24 +23972,22 @@ def _bitbucket_approval_rows(head: str, repo: Path) -> tuple[Optional[list], str
     """The branch's pull requests in gh's approval shape: approvals are participants with
     `approved: true`; `changes_requested` is not one. Merger and approvers are account ids."""
     origin = repo_forge(str(repo))
-    endpoint = _bitbucket_endpoint(origin)
     rows = _bitbucket_list_prs(repo, origin, head, state="all", limit=50)
-    if endpoint is None or rows is None or len(rows) >= 50:
+    if rows is None or len(rows) >= 50:
         return None, "forge unreachable: cannot list Bitbucket pull requests"
     deadline = time.monotonic() + _FORGE_PROBE_TIMEOUT_S
     out = []
     for row in rows:
-        pr = _bkt_get(f"{endpoint}/pullrequests/{row['number']}", [], deadline)
-        participants = pr.get("participants") if isinstance(pr, dict) else None
-        if not isinstance(participants, list) or not all(isinstance(p, dict) for p in participants):
+        read = _bitbucket_participants(_bitbucket_endpoint(origin), row["number"], deadline)
+        if read is None:
             return None, f"forge unreachable: cannot read Bitbucket pull request {row['number']}"
+        pr, participants = read
         reviews = [{"author": {"login": _bitbucket_account(p.get("user")) or "unknown"},
                     "state": "APPROVED" if p.get("approved") is True else "CHANGES_REQUESTED",
                     "submittedAt": p.get("participated_on")}
                    for p in participants if p.get("approved") is True or p.get("state") == "changes_requested"]
-        merged = row["state"] == "MERGED"
-        out.append({**row, "reviews": reviews,
-                    "mergedBy": {"login": _bitbucket_account(pr.get("closed_by"))} if merged else None})
+        out.append({**row, "reviews": reviews, "mergedBy": ({"login": _bitbucket_account(pr.get("closed_by"))}
+                                                            if row["state"] == "MERGED" else None)})
     return out, ""
 
 
@@ -24007,10 +23996,6 @@ def _bitbucket_status_commit(status: Any) -> Optional[str]:
     href = _bitbucket_field(status, "links", "commit", "href")
     commit = href.rstrip("/").rsplit("/", 1)[-1] if isinstance(href, str) else ""
     return commit if re.fullmatch(r"[0-9a-f]{7,40}", commit) else None
-
-
-# Bitbucket build states: in progress is pending; failed and stopped are red.
-_BITBUCKET_BUILD_RANK = {"SUCCESSFUL": 0, "INPROGRESS": 1, "FAILED": 2, "STOPPED": 2}
 
 
 def _bitbucket_readiness(repo: Path, origin: "ForgeOrigin", number: int) -> dict:
@@ -24025,41 +24010,26 @@ def _bitbucket_readiness(repo: Path, origin: "ForgeOrigin", number: int) -> dict
     unread = {"head_sha": None, "mergeable": None, "merge_state": None, "builds": None,
               "approval": "unknown", "draft": None, "green": False, "ready": False}
     endpoint = _bitbucket_endpoint(origin)
-    if endpoint is None:
-        return unread
     deadline = time.monotonic() + _FORGE_PROBE_TIMEOUT_S
-    pr = _bkt_get(f"{endpoint}/pullrequests/{number}", [], deadline)
-    short = _bitbucket_field(pr, "source", "commit", "hash")
-    participants = pr.get("participants") if isinstance(pr, dict) else None
+    read = _bitbucket_participants(endpoint, number, deadline) if endpoint else None
+    short = _bitbucket_field(read[0], "source", "commit", "hash") if read else None
     head = _bitbucket_full_sha(repo, endpoint, short, deadline) if isinstance(short, str) else None
-    if head is None or not isinstance(participants, list) or not all(isinstance(p, dict) for p in participants):
+    if head is None:
         return unread
+    pr, participants = read
     workspace, slug = origin.project.split("/")
-    remaining = deadline - time.monotonic()
     try:
-        proc = subprocess.run(["bkt", "pr", "mergeability", str(number), "--workspace", workspace,
-                               "--repo", slug, "--json"], capture_output=True, text=True,
-                              timeout=max(remaining, 0.1), check=False)
+        proc = subprocess.run(["bkt", "pr", "mergeability", str(number), "--workspace", workspace, "--repo", slug,
+                               "--json"], capture_output=True, text=True,
+                              timeout=max(deadline - time.monotonic(), 0.1), check=False)
         checks = json.loads(proc.stdout) if proc.returncode == 0 else None
     except (OSError, ValueError, subprocess.TimeoutExpired):
         checks = None
-    statuses, path, params = [], f"{endpoint}/pullrequests/{number}/statuses", ["pagelen=100"]
-    while statuses is not None:
-        listed = _bkt_get(path, params, deadline)
-        values = listed.get("values") if isinstance(listed, dict) else None
-        if not isinstance(values, list):
-            statuses = None
-            break
-        statuses += values
-        if not listed.get("next"):
-            break
-        path, params = _bkt_next(listed), []
-        if path is None:
-            statuses = None
+    statuses = _bkt_pages(f"{endpoint}/pullrequests/{number}/statuses", ["pagelen=100"], deadline)
     if not (isinstance(checks, dict) and isinstance(checks.get("mergeable"), str)
             and isinstance(checks.get("mergeStateStatus"), str) and statuses is not None
-            and all(isinstance(s, dict) and s.get("state") in _BITBUCKET_BUILD_RANK
-                    and _bitbucket_status_commit(s) for s in statuses)):
+            and all(_bitbucket_field(s, "state") in _BITBUCKET_BUILD_RANK and _bitbucket_status_commit(s)
+                    for s in statuses)):
         return {**unread, "head_sha": head}
     # A status for an earlier head says nothing about this one.
     here = [s["state"] for s in statuses if head.startswith(_bitbucket_status_commit(s))]

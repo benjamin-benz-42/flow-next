@@ -402,8 +402,11 @@ class BitbucketLandReadTests(ForgeTestCase):
         self.assertEqual(files[30][-1], ".fn-bb-test/README2")
         self.assertEqual(len(files[30]), 5)
         f.repo_forge.cache_clear()
-        broken = bb_changed("pr-diffstat-merged", lambda d: {**d, "values": [{"status": "added"}]})
-        self.assertIsNone(self.run_fake(lambda: read()[0](self.repo, read()[2], "fn-bb-test/pr-2"), self.merged(broken)))
+        for broken in (bb_changed("pr-diffstat-merged", lambda d: {**d, "values": [{"status": "added"}]}),
+                       # A page short of its size would read as a spec-only merge.
+                       bb_changed("pr-diffstat-merged", lambda d: {**d, "values": [], "size": 5})):
+            f.repo_forge.cache_clear()
+            self.assertIsNone(self.run_fake(lambda: read()[0](self.repo, read()[2], "fn-bb-test/pr-2"), self.merged(broken)))
 
     def test_approval_rows_count_approvals_never_changes_requested(self):
         def reviewers(pr):
@@ -451,7 +454,9 @@ class BitbucketLandReadTests(ForgeTestCase):
             ("build running", {"pr-statuses-none": statuses((head, "SUCCESSFUL"), (head, "INPROGRESS"))}, ("INPROGRESS", False, False)),
             ("build failed", {"pr-statuses-none": statuses((head, "FAILED"))}, ("FAILED", False, False)),
             ("an earlier head's failure", {"pr-statuses-none": statuses(("0000000000aa", "FAILED"))}, (None, True, True)),
-            ("conflict", {"pr-mergeability-clean": mergeability("CONFLICTING", "DIRTY")}, (None, True, False)),
+            # Recorded on a sandbox pull request with a real conflict, replayed under 29's call.
+            ("conflict", {"pr-mergeability-clean": bb_changed("pr-mergeability-conflict",
+                                                               argv=bb_fixture("pr-mergeability-clean")["argv"])}, (None, True, False)),
             ("blocked by merge checks", {"pr-mergeability-clean": mergeability("MERGEABLE", "BLOCKED")}, (None, True, False)),
             ("changes requested", {"pr-detail-open": detail(lambda pr: {**pr, "participants": [
                 {"user": {}, "approved": False, "state": "changes_requested"}]})}, (None, True, False)),
@@ -466,6 +471,7 @@ class BitbucketLandReadTests(ForgeTestCase):
     def test_unreadable_readiness_is_never_ready(self):
         for name, swap in (("mergeability fails", {"pr-mergeability-clean": bb_changed("pr-mergeability-clean", returncode=1, stdout="")}),
                            ("statuses fail", {"pr-statuses-none": bb_changed("pr-statuses-none", returncode=1, stdout="")}),
+                           ("statuses short of their size", {"pr-statuses-none": bb_changed("pr-statuses-none", lambda p: {**p, "size": 1})}),
                            ("unknown build state", {"pr-statuses-none": bb_changed("pr-statuses-none", lambda p: {**p, "values": [{"state": "WEIRD"}]})}),
                            *((f"status commit link {name}", {"pr-statuses-none": bb_changed("pr-statuses-none", lambda p, link=link: {
                                **p, "values": [{"state": "FAILED", "links": link}]})})

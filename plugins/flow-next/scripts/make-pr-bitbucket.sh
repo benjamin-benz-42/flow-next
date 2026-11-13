@@ -7,6 +7,8 @@
 # --base --head`) and `pr edit <number> --body-file <file> [--ready]`; both print
 # the pull request's URL.
 # `auth-check` exits 0 when bkt is logged in to Bitbucket Cloud with an active Cloud context.
+# `origin-project` prints the origin remote's workspace/repo: the one parser make-pr,
+# resolve-pr and land share.
 # Environment: ORIGIN_PROJECT (origin workspace/repo).
 # Exit 0 is a complete answer; a failed, partial or malformed read exits nonzero,
 # never an empty "no pull request".
@@ -14,6 +16,16 @@ set -euo pipefail
 # Windows jq.exe ends lines with CRLF; drop the CR so counts and values compare equal (#541).
 jq() { command jq "$@" | tr -d '\r'; return "${PIPESTATUS[0]}"; }
 fail() { echo "make-pr-bitbucket.sh: $*" >&2; exit 1; }
+
+if [[ "${1:-}" == origin-project ]]; then
+  # https://[user@]host/ws/repo[.git][/], ssh://[user@]host[:port]/ws/repo, or [user@]host:ws/repo (an SSH alias too).
+  URL=$(git remote get-url origin) || fail "no origin remote"
+  if [[ "$URL" == *://* ]]; then PROJECT=${URL#*://*/}; else PROJECT=${URL#*:}; fi
+  PROJECT=${PROJECT%/}; PROJECT=${PROJECT%.git}
+  [[ "$PROJECT" =~ ^[^/[:space:]\"]+/[^/[:space:]\"]+$ ]] || fail "origin $URL names no workspace/repo"
+  printf '%s\n' "$PROJECT"
+  exit 0
+fi
 
 if [[ "${1:-}" == auth-check ]]; then
   # bkt answers only through a context; a Cloud one names api.bitbucket.org.
@@ -89,10 +101,9 @@ done
 # With a `q` filter Bitbucket ignores the `state` parameter, so the states go into the query.
 # A fork's pull request can share the branch name; only the origin repository's count.
 QUERY="source.repository.full_name=\"$ORIGIN_PROJECT\" AND source.branch.name=\"$HEAD\" AND (state=\"OPEN\" OR state=\"MERGED\" OR state=\"DECLINED\" OR state=\"SUPERSEDED\")"
-ROWS='[]'; PAGE=1
+ROWS='[]'; ARGS=("/repositories/$ORIGIN_PROJECT/pullrequests" -P "q=$QUERY" -P pagelen=50)
 while :; do
-  LISTED=$(bkt api "/repositories/$ORIGIN_PROJECT/pullrequests" -P "q=$QUERY" -P pagelen=50 -P "page=$PAGE") \
-    || fail "bkt api pullrequests failed"
+  LISTED=$(bkt api "${ARGS[@]}") || fail "bkt api pullrequests failed"
   # Exactly one JSON page: empty or other output is unreadable, never an empty listing.
   printf '%s' "$LISTED" | jq -se 'length == 1 and (.[0].values | type) == "array"' >/dev/null \
     || fail "unreadable pull-request listing"
@@ -103,7 +114,8 @@ while :; do
       || fail "incomplete pull-request listing"
     break
   fi
-  PAGE=$((PAGE + 1))
+  # The next page is the `next` link's path and query, below the API root.
+  ARGS=("$(printf '%s' "$LISTED" | jq -r '.next | sub("^https://api\\.bitbucket\\.org/2\\.0"; "")')")
 done
 printf '%s' "$ROWS" | jq -c --arg read "$READ" '
   if all(.[]; type == "object" and (.id | type) == "number" and (.links.html.href | type) == "string"

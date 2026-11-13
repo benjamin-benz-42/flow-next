@@ -71,3 +71,5 @@ Siblings: spec 2 (resolve-pr over Bitbucket PR comments) and spec 3 (land and me
 **Why make-pr is in this spec.** Without it `flow --auto` still ends on `NEEDS_HUMAN`, only one stage later; fn-73 bundled make-pr with the adapter for the same reason. [paraphrase]
 
 **Amended 2026-11-13 during work.** The adapter first claimed `bitbucket.org` through `owns_host` and avoided `bkt` contexts. Live runs showed `bkt` answers only through an active context and that Bitbucket Cloud's hosts are fixed, so the hosts are claimed directly and the context is a preflight-checked setup step; the `q`-ignores-`state` and create-rewrites findings were added to the constraints. [paraphrase]
+
+**Amended 2026-11-13 after the branch review.** R4's "updates title and description on a re-run" was capture's inference; make-pr's update replaces only the description on every forge (GitHub's `gh pr edit --body-file`, GitLab's helper), so Bitbucket does the same and the title stays as created. [inferred]

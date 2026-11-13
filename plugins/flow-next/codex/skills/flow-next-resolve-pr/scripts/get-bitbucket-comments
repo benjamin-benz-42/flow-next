@@ -16,9 +16,9 @@ PR_ID="${1:?Usage: $0 PR_ID}"
 # inline thread's own comment is read for it.
 
 ENDPOINT="/repositories/$ORIGIN_PROJECT/pullrequests/$PR_ID/comments"
-ALL='[]'; PAGE=1
+ALL='[]'; ARGS=("$ENDPOINT" -P pagelen=100)
 while :; do
-  LISTED=$(bkt api "$ENDPOINT" -P pagelen=100 -P "page=$PAGE")
+  LISTED=$(bkt api "${ARGS[@]}")
   printf '%s' "$LISTED" | jq -se 'length == 1 and (.[0].values | type) == "array"' >/dev/null \
     || { echo "get-bitbucket-comments: unreadable comment listing" >&2; exit 1; }
   ALL=$(printf '%s\n%s' "$ALL" "$LISTED" | jq -cs '.[0] + .[1].values')
@@ -27,7 +27,8 @@ while :; do
       || { echo "get-bitbucket-comments: incomplete comment listing" >&2; exit 1; }
     break
   fi
-  PAGE=$((PAGE + 1))
+  # The next page is the `next` link's path and query, below the API root.
+  ARGS=("$(printf '%s' "$LISTED" | jq -r '.next | sub("^https://api\\.bitbucket\\.org/2\\.0"; "")')")
 done
 printf '%s' "$ALL" | jq -e 'all(.[]; type == "object" and (.id | type) == "number" and (.deleted | type) == "boolean")' >/dev/null \
   || { echo "get-bitbucket-comments: malformed comment row" >&2; exit 1; }

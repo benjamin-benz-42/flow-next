@@ -15,10 +15,9 @@ gitlab_reads() {
 # On Bitbucket Cloud the three PR reads run the pull-request helper. Bitbucket Cloud
 # publishes no pull-request head refs, so a merged parent's history comes from its branch.
 bitbucket_reads() {
-  ORIGIN_PROJECT=${ORIGIN_URL#*:}; [[ "$ORIGIN_URL" != *://* ]] || ORIGIN_PROJECT=${ORIGIN_URL#*://*/}
-  ORIGIN_PROJECT=${ORIGIN_PROJECT%/}; ORIGIN_PROJECT=${ORIGIN_PROJECT#/}; ORIGIN_PROJECT=${ORIGIN_PROJECT%.git}
-  export ORIGIN_PROJECT
   PR_READ="$(dirname "$FLOWCTL")/make-pr-bitbucket.sh"
+  ORIGIN_PROJECT=$(cd "$REPO_ROOT" && "$PR_READ" origin-project) || ORIGIN_PROJECT=""
+  export ORIGIN_PROJECT
 }
 {
   # The origin remote's host names the forge: GitHub pull requests through gh, GitLab merge

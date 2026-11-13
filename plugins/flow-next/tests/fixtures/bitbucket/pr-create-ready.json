@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "bkt",
+    "pr",
+    "create",
+    "--title",
+    "test: flow-next Bitbucket conflict sandbox",
+    "--description",
+    "Conflict sandbox PR. Safe to decline.",
+    "--source",
+    "fn-bb-test/pr-4",
+    "--target",
+    "fn-bb-test/sandbox-base",
+    "--workspace",
+    "flownext",
+    "--repo",
+    "flownext",
+    "--json"
+  ],
+  "returncode": 0,
+  "stdout": "{\n  \"id\": 33,\n  \"title\": \"test: flow-next Bitbucket conflict sandbox\",\n  \"url\": \"https://bitbucket.org/flownext/flownext/pull-requests/33\"\n}\n",
+  "stderr": ""
+}

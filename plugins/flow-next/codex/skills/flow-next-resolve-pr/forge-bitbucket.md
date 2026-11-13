@@ -6,7 +6,7 @@
 
 The phases, triage, dispatch, validation and verdicts are workflow.md's; only the commands below
 change. The scripts and `bkt` name the repository explicitly, so first export it from the origin:
-`export ORIGIN_PROJECT="$(git remote get-url origin | sed -E 's#^(https?|ssh|git\+ssh)://[^/]+/##; s#^[^@/]+@[^:]+:##; s#\.git$##; s#/$##')"`.
+`export ORIGIN_PROJECT="$(bash "$(dirname "$FLOWCTL")/make-pr-bitbucket.sh" origin-project)"`.
 
 - **Preamble:** in place of the gh check, `bash "$(dirname "$FLOWCTL")/make-pr-bitbucket.sh" auth-check || { echo "bkt not ready. Run: bkt auth login https://bitbucket.org --kind cloud --web, then bkt context create cloud --host api.bitbucket.org --workspace ${ORIGIN_PROJECT%%/*} --set-active"; exit 1; }`.
 - **Phase 0:** a number is the pull request id. A pull request URL
@@ -22,6 +22,9 @@ change. The scripts and `bkt` name the repository explicitly, so first export it
   replies as its comments. `pr_comments` and `review_bodies` are always empty, and `isOutdated` is
   Bitbucket's own flag for an inline comment whose line changed, so the resolver re-locates it by
   content.
+- **Phase 2:** an open thread whose last comment is the PR author's (the author's own top-level
+  comment, or a reply whose resolve failed on an earlier run) is answered but still open: resolve it
+  in Phase 8 rather than dropping it, or land stops on it again every run.
 - **Phase 5:** tell each resolver this is a Bitbucket pull request, and that where its instructions
   say `gh pr diff` or `gh pr view` it reads `git diff origin/<destination branch>...HEAD` and
   `bkt pr view <id> --workspace <workspace> --repo <repo> --json` instead.
