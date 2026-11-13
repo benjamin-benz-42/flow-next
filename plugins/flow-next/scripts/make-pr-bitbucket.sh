@@ -97,7 +97,12 @@ while :; do
   printf '%s' "$LISTED" | jq -se 'length == 1 and (.[0].values | type) == "array"' >/dev/null \
     || fail "unreadable pull-request listing"
   ROWS=$(printf '%s\n%s' "$ROWS" "$LISTED" | jq -cs '.[0] + .[1].values')
-  printf '%s' "$LISTED" | jq -e '.next | type == "string"' >/dev/null || break
+  if ! printf '%s' "$LISTED" | jq -e '.next | type == "string"' >/dev/null; then
+    # The last page closes the listing only when it accounts for every match.
+    printf '%s\n%s' "$ROWS" "$LISTED" | jq -se '.[1].size == null or .[1].size == (.[0] | length)' >/dev/null \
+      || fail "incomplete pull-request listing"
+    break
+  fi
   PAGE=$((PAGE + 1))
 done
 printf '%s' "$ROWS" | jq -c --arg read "$READ" '

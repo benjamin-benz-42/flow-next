@@ -23821,6 +23821,17 @@ _BITBUCKET_PAGELEN = 50
 _BITBUCKET_PR_STATES = {"OPEN": "OPEN", "MERGED": "MERGED", "DECLINED": "CLOSED", "SUPERSEDED": "CLOSED"}
 
 
+_BITBUCKET_ROW_PATHS = (("links", "html", "href"), ("source", "branch", "name"), ("source", "commit", "hash"),
+                        ("destination", "branch", "name"))
+
+
+def _bitbucket_field(value: Any, *path: str) -> Any:
+    """A nested field of a pull-request object, or None when any level is not an object."""
+    for key in path:
+        value = value.get(key) if isinstance(value, dict) else None
+    return value
+
+
 def _bkt_get(endpoint: str, params: list, deadline: float) -> Optional[Any]:
     """One `bkt api` GET through bkt's active context, parsed; None when it failed."""
     remaining = deadline - time.monotonic()
@@ -23866,11 +23877,8 @@ def _bitbucket_list_prs(repo: Path, origin: "ForgeOrigin", head: Optional[str], 
             return None
         for pr in values:
             if not (isinstance(pr, dict) and isinstance(pr.get("id"), int)
-                    and pr.get("state") in _BITBUCKET_PR_STATES
-                    and isinstance(((pr.get("links") or {}).get("html") or {}).get("href"), str)
-                    and isinstance(((pr.get("source") or {}).get("branch") or {}).get("name"), str)
-                    and isinstance(((pr.get("source") or {}).get("commit") or {}).get("hash"), str)
-                    and isinstance(((pr.get("destination") or {}).get("branch") or {}).get("name"), str)):
+                    and isinstance(pr.get("state"), str) and pr["state"] in _BITBUCKET_PR_STATES
+                    and all(isinstance(_bitbucket_field(pr, *path), str) for path in _BITBUCKET_ROW_PATHS)):
                 return None
             sha = _bitbucket_full_sha(repo, endpoint, pr["source"]["commit"]["hash"], deadline)
             if sha is None:
@@ -23883,7 +23891,8 @@ def _bitbucket_list_prs(repo: Path, origin: "ForgeOrigin", head: Optional[str], 
                          "baseRefName": pr["destination"]["branch"]["name"], "mergedAt": None,
                          "isDraft": pr.get("draft") is True})
         if not listed.get("next"):
-            return rows
+            # The last page closes the listing only when it accounts for every match.
+            return rows if listed.get("size") in (None, len(rows)) else None
         if len(rows) >= limit:
             return rows
         page += 1

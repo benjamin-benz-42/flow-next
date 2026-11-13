@@ -91,6 +91,7 @@ class HelperReadTests(BitbucketShellCase):
             "empty output": self.as_bkt("pr-branch-open", stdout=""),
             "unknown state": self.as_bkt("pr-branch-open", lambda p: {**p, "values": [{**p["values"][0], "state": "OPENED"}]}),
             "no values": self.as_bkt("pr-branch-open", lambda p: {k: v for k, v in p.items() if k != "values"}),
+            "size says rows are missing": self.as_bkt("pr-branch-open", lambda p: {**p, "values": [], "size": 1}),
         }
         for name, path in cases.items():
             with self.subTest(name):
@@ -152,7 +153,7 @@ class OriginBlockTests(BitbucketShellCase):
     def test_bitbucket_origins_with_a_ready_bkt_pass(self):
         ready = answers(recorded("context-list"), recorded("auth-status"))
         for origin in ("git@bitbucket.org:flownext/flownext.git", "https://bitbucket.org/flownext/flownext.git",
-                       "git@ssh.bitbucket.org:flownext/flownext.git"):
+                       "git@ssh.bitbucket.org:flownext/flownext.git", "https://BITBUCKET.ORG/flownext/flownext.git"):
             with self.subTest(origin):
                 result = self.block(origin, BKT_ANSWERS=ready)
                 self.assertEqual(result.returncode, 0, result.stderr)

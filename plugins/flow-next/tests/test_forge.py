@@ -320,6 +320,10 @@ class BitbucketAdapterTests(ForgeTestCase):
             ("origin without repo", dict(head="b", origin="https://bitbucket.org/flownext.git")),
             *((f"malformed: {name}", dict(head="fn-bb-test/pr-1", bkt=[malformed(change), bb_fixture("commit-head")]))
               for name, change in (("no values", lambda p: p.pop("values")),
+                                   ("size says rows are missing", lambda p: p.update(size=2)),
+                                   ("list state", lambda p: p["values"][0].update(state=["OPEN"])),
+                                   ("source not an object", lambda p: p["values"][0].update(source="bad")),
+                                   ("links a list", lambda p: p["values"][0].update(links=[])),
                                    ("unknown state", lambda p: p["values"][0].update(state="OPENED")),
                                    ("no id", lambda p: p["values"][0].pop("id")),
                                    ("no head branch", lambda p: p["values"][0]["source"].pop("branch")))),

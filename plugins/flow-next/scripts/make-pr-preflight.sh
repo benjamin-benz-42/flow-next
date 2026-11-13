@@ -33,7 +33,7 @@ bitbucket_reads() {
   fi
   if [[ "$ORIGIN_HOST" == github.com || "$ORIGIN_HOST" == ssh.github.com ]]; then
     FORGE=github
-  elif [[ "$ORIGIN_HOST" =~ ^((alt)?ssh\.)?bitbucket\.org$ ]]; then
+  elif [[ "$(printf '%s' "$ORIGIN_HOST" | tr '[:upper:]' '[:lower:]')" =~ ^((alt)?ssh\.)?bitbucket\.org$ ]]; then
     FORGE=bitbucket
   else
     # An http(s) port is the forge's own (an SSH port is not), so it stays on the host; a default port is none.

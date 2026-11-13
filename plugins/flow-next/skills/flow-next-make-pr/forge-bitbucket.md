@@ -17,7 +17,9 @@ carry `BASE_REF`. `make-pr-create.sh` then pushes and opens or updates the pull 
 - There is no stack link: while a parent's pull request is open, the child targets its branch.
 - Tracker finalize: the pull request's `created_on` is the `<PR-createdAt>`:
   `bkt pr view "${PR_URL##*/}" --workspace "${ORIGIN_PROJECT%%/*}" --repo "${ORIGIN_PROJECT#*/}" --json | jq -r .pull_request.created_on`.
-- No-spec path: follow no-spec-path.md with `"$PR_READ" pr create --title <title> --body-file <file>
+- No-spec path: preflight stops there before its existing-PR check, so first read
+  `"$PR_READ" pr view --json number --jq .number`; an open pull request means `--update`, never a
+  create. Otherwise follow no-spec-path.md with `"$PR_READ" pr create --title <title> --body-file <file>
   [--draft] --base <branch> --head <branch>` in place of `gh pr create`. `--base` is required; without
   `--base`, use the default branch (`git symbolic-ref --short refs/remotes/origin/HEAD` minus
   `origin/`). Under `--update`, run `"$PR_READ" pr edit <number> --body-file <file>`, with the number
