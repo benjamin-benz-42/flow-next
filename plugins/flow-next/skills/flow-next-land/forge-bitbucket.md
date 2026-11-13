@@ -6,7 +6,11 @@
 `bkt` names the repository explicitly: first
 `export ORIGIN_PROJECT="$(git remote get-url origin | sed -E 's#^(https?|ssh|git\+ssh)://[^/]+/##; s#^[^@/]+@[^:]+:##; s#\.git$##; s#/$##')"`
 and use `--workspace "${ORIGIN_PROJECT%%/*}" --repo "${ORIGIN_PROJECT#*/}"` (`$WR` below). `$PR` is
-the pull request id, `$HEAD_SHA` the full head SHA and `$BRANCH` the source branch.
+the pull request id, `$HEAD_SHA` the full head SHA and `$BRANCH` the source branch. Before the first
+read, `bash "$(dirname "$FLOWCTL")/make-pr-bitbucket.sh" auth-check`; a failure (bkt missing, logged
+out, or without an active Cloud context) stops `NEEDS_HUMAN` before any merge, naming
+`bkt auth login https://bitbucket.org --kind cloud --web` and
+`bkt context create cloud --host api.bitbucket.org --workspace ${ORIGIN_PROJECT%%/*} --set-active`.
 
 - **Read the pull request.** `bkt api "/repositories/$ORIGIN_PROJECT/pullrequests/$PR"`: `state`
   (`OPEN`, `MERGED`, `DECLINED` and `SUPERSEDED`, the last two closed unmerged), `draft`,
@@ -29,13 +33,16 @@ the pull request id, `$HEAD_SHA` the full head SHA and `$BRANCH` the source bran
   stop `NEEDS_HUMAN`. `readiness` holds `mergeable` and `merge_state` (Bitbucket's merge checks, as
   `bkt pr mergeability` reports them), `builds` (the worst build status on this head, null when
   none is reported), `approval` (`approved`, `changes_requested` or `none`), `draft`, `green` and
-  `ready`. A pull request without a spec has no readiness read: stop `NEEDS_HUMAN`.
+  `ready`. A pull request without a spec has no snapshot: read the same answers directly, at
+  `$HEAD_SHA`, from `bkt pr mergeability $PR $WR --json`, the statuses below, and the pull request's
+  `participants` (`approved: true` is an approval, `state: changes_requested` blocks) and `draft`.
 - **Conflicts and catch-up.** `mergeable: CONFLICTING` stops `BLOCKED` naming the branch;
   `UNKNOWN` is `RESOLVING`. Bitbucket merges a branch that is behind its base, so there is no
   catch-up.
 - **Threads.** Open comment threads go to resolve-pr exactly as on GitHub, from the detached worktree
   at `$HEAD_SHA`; its Bitbucket reference fetches and resolves them and pushes to `$BRANCH`.
-- **Builds.** `SUCCESSFUL` is green, and no build reported is nothing to wait for; a build the
+- **Builds.** A status names its commit through `links.commit.href`; only statuses for `$HEAD_SHA`
+  count. `SUCCESSFUL` is green, and no build reported is nothing to wait for; a build the
   repository requires blocks in `merge_state` instead. `INPROGRESS` is a pending check. `FAILED` or
   `STOPPED` stops `BLOCKED` naming each failing build with its `url` from
   `bkt api "/repositories/$ORIGIN_PROJECT/pullrequests/$PR/statuses"`: land does not repair or rerun

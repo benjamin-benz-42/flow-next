@@ -23876,7 +23876,9 @@ def _bitbucket_merged_at(endpoint: str, number: int, deadline: float) -> Optiona
             return None
         for entry in values:
             update = entry.get("update") if isinstance(entry, dict) else None
-            if isinstance(update, dict) and update.get("state") == "MERGED":
+            # Every later update of a merged pull request also reads `state: MERGED`; the merge
+            # itself is the update whose status changed to fulfilled.
+            if _bitbucket_field(update, "changes", "status", "new") == "fulfilled":
                 return True, update["date"] if isinstance(update.get("date"), str) else None
         if not listed.get("next"):
             return True, None
@@ -23912,13 +23914,17 @@ def _bitbucket_list_prs(repo: Path, origin: "ForgeOrigin", head: Optional[str], 
             sha = _bitbucket_full_sha(repo, endpoint, pr["source"]["commit"]["hash"], deadline)
             merged_at = (_bitbucket_merged_at(endpoint, pr["id"], deadline) if pr["state"] == "MERGED"
                          else (True, None))
-            if sha is None or merged_at is None:
+            merge_short = _bitbucket_field(pr, "merge_commit", "hash")
+            merge_commit = (_bitbucket_full_sha(repo, endpoint, merge_short, deadline)
+                            if isinstance(merge_short, str) else None)
+            if sha is None or merged_at is None or (isinstance(merge_short, str) and merge_commit is None):
                 return None
             rows.append({"number": pr["id"], "url": pr["links"]["html"]["href"],
                          "state": _BITBUCKET_PR_STATES[pr["state"]],
                          "headRefName": pr["source"]["branch"]["name"], "headRefOid": sha,
                          "baseRefName": pr["destination"]["branch"]["name"], "mergedAt": merged_at[1],
-                         "isDraft": pr.get("draft") is True})
+                         "isDraft": pr.get("draft") is True,
+                         **({"mergeCommit": merge_commit} if pr["state"] == "MERGED" else {})})
         if not listed.get("next"):
             # The last page closes the listing only when it accounts for every match.
             return rows if listed.get("size") in (None, len(rows)) else None
@@ -24045,11 +24051,15 @@ def _bitbucket_readiness(repo: Path, origin: "ForgeOrigin", number: int) -> dict
             statuses = None
     if not (isinstance(checks, dict) and isinstance(checks.get("mergeable"), str)
             and isinstance(checks.get("mergeStateStatus"), str) and statuses is not None
-            and all(isinstance(s, dict) and s.get("state") in _BITBUCKET_BUILD_RANK for s in statuses)):
+            and all(isinstance(s, dict) and s.get("state") in _BITBUCKET_BUILD_RANK
+                    and isinstance(_bitbucket_field(s, "links", "commit", "href"), str) for s in statuses)):
         return {**unread, "head_sha": head}
-    # A status for an earlier head says nothing about this one.
+    # A status names its commit through `links.commit.href`; one for an earlier head says
+    # nothing about this one.
     here = [s["state"] for s in statuses
-            if isinstance(_bitbucket_field(s, "commit", "hash"), str) and head.startswith(s["commit"]["hash"])]
+            if isinstance(_bitbucket_field(s, "links", "commit", "href"), str)
+            and (commit := s["links"]["commit"]["href"].rstrip("/").rsplit("/", 1)[-1])
+            and re.fullmatch(r"[0-9a-f]{7,40}", commit) and head.startswith(commit)]
     builds = max(here, key=_BITBUCKET_BUILD_RANK.__getitem__) if here else None
     approval = ("changes_requested" if any(p.get("state") == "changes_requested" for p in participants)
                 else "approved" if any(p.get("approved") is True for p in participants) else "none")

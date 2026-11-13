@@ -355,7 +355,7 @@ class BitbucketLandReadTests(ForgeTestCase):
     """Merge evidence, spec approval and merge readiness, replaying the sandbox pull requests:
     30 merged (squash) into a throwaway base, 29 open with no builds and no reviewers."""
 
-    MERGED = ("pr-branch-merged", "commit-merged-head", "pr-activity-merged")
+    MERGED = ("pr-branch-merged", "commit-merged-head", "pr-activity-merged", "commit-merge")
     OPEN = ("pr-detail-open", "commit-head", "pr-mergeability-clean", "pr-statuses-none")
 
     def run_fake(self, fn, bkt):
@@ -367,10 +367,23 @@ class BitbucketLandReadTests(ForgeTestCase):
     def test_merged_row_carries_the_merge_time_from_activity_not_updated_on(self):
         rows = self.run_fake(lambda: f.forge_list_prs(self.repo, "fn-bb-test/pr-2", state="all", limit=100), self.merged())
         self.assertEqual((rows[0]["state"], rows[0]["mergedAt"]), ("MERGED", "2026-11-13T09:44:02.728288+00:00"))
+        # The squash merge commit is not the source head.
+        self.assertEqual((rows[0]["mergeCommit"], rows[0]["headRefOid"]),
+                         ("91c7f9526e36ee27a00101af67c14a2b9fa8b756", "3851dad1ef841f928cb7a75c151632ac79ac58ca"))
+        # A later edit of the merged pull request also reads state MERGED; only the transition counts.
+        def later_edit(activity):
+            merge = next(v for v in activity["values"] if (v.get("update") or {}).get("state") == "MERGED")
+            edit = {**merge, "update": {**merge["update"], "date": "2026-11-20T00:00:00+00:00",
+                                        "changes": {"description": {"old": "a", "new": "b"}}}}
+            return {**activity, "values": [edit, *activity["values"]]}
+        f.repo_forge.cache_clear()
+        rows = self.run_fake(lambda: f.forge_list_prs(self.repo, "fn-bb-test/pr-2", state="all", limit=100),
+                             self.merged(**{"pr-activity-merged": bb_changed("pr-activity-merged", later_edit)}))
+        self.assertEqual(rows[0]["mergedAt"], "2026-11-13T09:44:02.728288+00:00")
         updated_on = json.loads(bb_fixture("pr-branch-merged")["stdout"])["values"][0]["updated_on"]
         self.assertNotEqual(rows[0]["mergedAt"], updated_on)
-        no_merge = bb_changed("pr-activity-merged", lambda a: {**a, "values": [v for v in a["values"]
-                                                                               if (v.get("update") or {}).get("state") != "MERGED"]})
+        no_merge = bb_changed("pr-activity-merged", lambda a: {**a, "values": [
+            v for v in a["values"] if ((v.get("update") or {}).get("changes") or {}).get("status") is None]})
         f.repo_forge.cache_clear()
         rows = self.run_fake(lambda: f.forge_list_prs(self.repo, "fn-bb-test/pr-2", state="all", limit=100),
                              self.merged(**{"pr-activity-merged": no_merge}))
@@ -422,10 +435,13 @@ class BitbucketLandReadTests(ForgeTestCase):
             "builds": None, "approval": "none", "draft": False, "green": True, "ready": True})
 
     def test_readiness_gates(self):
-        head = "538fbb9b397b"
+        head = "538fbb9b397b79601fff0db6aceb5f5cf1e60dbd"
         def statuses(*pairs):
+            # Bitbucket's documented status shape: the commit is a link, not a field.
             return bb_changed("pr-statuses-none", lambda p: {**p, "size": len(pairs), "values": [
-                {"type": "build", "key": f"b{i}", "state": state, "commit": {"hash": sha}} for i, (sha, state) in enumerate(pairs)]})
+                {"type": "build", "key": f"b{i}", "state": state, "links": {"commit": {
+                    "href": f"https://api.bitbucket.org/2.0/repositories/flownext/flownext/commit/{sha}"}}}
+                for i, (sha, state) in enumerate(pairs)]})
         def mergeability(mergeable, status):
             return bb_changed("pr-mergeability-clean", lambda m: {**m, "mergeable": mergeable, "mergeStateStatus": status})
         def detail(change):
@@ -451,6 +467,8 @@ class BitbucketLandReadTests(ForgeTestCase):
         for name, swap in (("mergeability fails", {"pr-mergeability-clean": bb_changed("pr-mergeability-clean", returncode=1, stdout="")}),
                            ("statuses fail", {"pr-statuses-none": bb_changed("pr-statuses-none", returncode=1, stdout="")}),
                            ("unknown build state", {"pr-statuses-none": bb_changed("pr-statuses-none", lambda p: {**p, "values": [{"state": "WEIRD"}]})}),
+                           ("status without a commit link", {"pr-statuses-none": bb_changed("pr-statuses-none", lambda p: {
+                               **p, "values": [{"state": "FAILED", "commit": {"hash": "538fbb9b397b"}}]})}),
                            ("pull request unreadable", {"pr-detail-open": bb_changed("pr-detail-open", returncode=1, stdout="")})):
             with self.subTest(name):
                 f.repo_forge.cache_clear()
