@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "bkt",
+    "api",
+    "/repositories/flownext/flownext/pullrequests",
+    "-P",
+    "q=source.repository.full_name=\"flownext/flownext\" AND source.branch.name=\"fn-bb-test/none\" AND (state=\"OPEN\" OR state=\"MERGED\" OR state=\"DECLINED\" OR state=\"SUPERSEDED\")",
+    "-P",
+    "pagelen=50",
+    "-P",
+    "page=1"
+  ],
+  "returncode": 0,
+  "stdout": "{\"values\": [], \"pagelen\": 50, \"size\": 0, \"page\": 1}",
+  "stderr": ""
+}

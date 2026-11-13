@@ -1,0 +1,11 @@
+{
+  "argv": [
+    "bkt",
+    "context",
+    "list",
+    "--json"
+  ],
+  "returncode": 0,
+  "stdout": "{\n  \"active_context\": \"cloud\",\n  \"contexts\": [\n    {\n      \"name\": \"cloud\",\n      \"host\": \"api.bitbucket.org\",\n      \"workspace\": \"flownext\",\n      \"active\": true\n    }\n  ]\n}\n",
+  "stderr": ""
+}

@@ -1,0 +1,24 @@
+{
+  "argv": [
+    "bkt",
+    "pr",
+    "create",
+    "--title",
+    "test: flow-next Bitbucket adapter sandbox",
+    "--description",
+    "Sandbox PR for the flow-next Bitbucket adapter. Safe to decline.",
+    "--source",
+    "fn-bb-test/pr-1",
+    "--target",
+    "fn-bb-test/sandbox-base",
+    "--draft",
+    "--workspace",
+    "flownext",
+    "--repo",
+    "flownext",
+    "--json"
+  ],
+  "returncode": 0,
+  "stdout": "{\n  \"id\": 29,\n  \"title\": \"test: flow-next Bitbucket adapter sandbox\",\n  \"url\": \"https://bitbucket.org/flownext/flownext/pull-requests/29\"\n}\n",
+  "stderr": ""
+}

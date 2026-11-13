@@ -37,9 +37,10 @@ class FakeCli:
     """subprocess.run stand-in: recorded glab, scripted origin / ssh / gh login, real git otherwise."""
 
     def __init__(self, origin=None, glab=(), gh_hosts=(), glab_hosts=("localhost:8929",),
-                 ssh=None, glab_auth=None):
+                 ssh=None, glab_auth=None, bkt=()):
         self.origin, self.gh_hosts, self.glab_hosts = origin, set(gh_hosts), set(glab_hosts)
         self.recorded = {tuple(fx["argv"]): fx for fx in glab}
+        self.bkt = {tuple(fx["argv"]): fx for fx in bkt}
         self.ssh, self.glab_auth, self.calls = ssh or {}, glab_auth, []
 
     def __call__(self, argv, *args, **kwargs):
@@ -62,6 +63,11 @@ class FakeCli:
                 raise subprocess.TimeoutExpired(argv, kwargs.get("timeout"))
             fx = fixture(self.glab_auth or ("auth-status-logged-in" if argv[4] in self.glab_hosts
                                             else "auth-status-unknown-host"))
+            return done(fx["returncode"], fx["stdout"], fx["stderr"])
+        if argv[0] == "bkt":
+            fx = self.bkt.get(tuple(argv))
+            if fx is None:
+                raise AssertionError(f"no recorded bkt answer for {argv}")
             return done(fx["returncode"], fx["stdout"], fx["stderr"])
         if argv[0] == "glab":
             fx = self.recorded.get(tuple(argv))
@@ -239,6 +245,97 @@ class GitLabAdapterTests(ForgeTestCase):
         with patch.object(f, "get_repo_root", return_value=self.repo):
             status = self.run_with(fake, lambda: f.spec_approval_status(self.repo, {"id": "fn-1-x"}))
         self.assertEqual(status, {"approved": False, "reason": "spec approval is unsupported on this forge (gitlab)"})
+
+
+BITBUCKET_FIXTURES = TESTS / "fixtures" / "bitbucket"
+BITBUCKET_ORIGIN = "git@bitbucket.org:flownext/flownext.git"   # the recorded repository, renamed
+
+
+def bb_fixture(name: str) -> dict:
+    return json.loads((BITBUCKET_FIXTURES / f"{name}.json").read_text(encoding="utf-8"))
+
+
+class BitbucketAdapterTests(ForgeTestCase):
+    """bkt answers replay live recordings from a Bitbucket Cloud sandbox pull request
+    (workspace, repository and people renamed)."""
+
+    def listing(self, head=None, *, state="all", limit=100, bkt=(), origin=BITBUCKET_ORIGIN):
+        fake = FakeCli(origin, bkt=bkt)
+        rows = self.run_with(fake, lambda: f.forge_list_prs(self.repo, head, state=state, limit=limit))
+        return rows, fake
+
+    def test_bitbucket_cloud_origins_resolve_to_bitbucket(self):
+        for origin in ("https://bitbucket.org/flownext/flownext.git", BITBUCKET_ORIGIN,
+                       "git@ssh.bitbucket.org:flownext/flownext.git",
+                       "ssh://git@altssh.bitbucket.org:443/flownext/flownext.git"):
+            with self.subTest(origin):
+                f.repo_forge.cache_clear()
+                result = self.run_with(FakeCli(origin), lambda: f.repo_forge(str(self.repo)))
+                self.assertEqual((result.forge, result.project), ("bitbucket", "flownext/flownext"))
+
+    def test_rows_map_from_recorded_listings(self):
+        # The temporary repo lacks the head commit, so bkt's commit read expands the short hash.
+        rows, fake = self.listing("fn-bb-test/pr-1", bkt=[bb_fixture("pr-branch-open"), bb_fixture("commit-head")])
+        self.assertEqual(rows, [{
+            "number": 29, "url": "https://bitbucket.org/flownext/flownext/pull-requests/29", "state": "OPEN",
+            "headRefName": "fn-bb-test/pr-1", "headRefOid": "538fbb9b397b79601fff0db6aceb5f5cf1e60dbd",
+            "baseRefName": "fn-bb-test/sandbox-base", "mergedAt": None, "isDraft": False}])
+        none, _ = self.listing("fn-bb-test/none", bkt=[bb_fixture("pr-branch-none")])
+        self.assertEqual(none, [])
+
+    def test_declined_and_superseded_are_closed_and_merge_time_is_never_updated_on(self):
+        for bb_state in ("DECLINED", "SUPERSEDED", "MERGED"):
+            with self.subTest(bb_state):
+                fx = bb_fixture("pr-branch-open")
+                page = json.loads(fx["stdout"])
+                page["values"][0]["state"] = bb_state
+                fx["stdout"] = json.dumps(page)
+                f.repo_forge.cache_clear()
+                rows, _ = self.listing("fn-bb-test/pr-1", bkt=[fx, bb_fixture("commit-head")])
+                self.assertEqual(rows[0]["state"], "MERGED" if bb_state == "MERGED" else "CLOSED")
+                self.assertIsNone(rows[0]["mergedAt"])
+
+    def test_open_listing_follows_next_links(self):
+        rows, _ = self.listing(state="open", limit=1000,
+                               bkt=[bb_fixture("pr-open-page-1"), bb_fixture("pr-open-page-2"), bb_fixture("commit-head")])
+        self.assertEqual([(r["number"], r["headRefName"]) for r in rows], [(29, "fn-bb-test/pr-1"), (30, "fn-bb-test/pr-2")])
+
+    def test_failed_reads_are_probe_failures(self):
+        def malformed(change):
+            fx = bb_fixture("pr-branch-open")
+            page = json.loads(fx["stdout"])
+            change(page)
+            fx["stdout"] = json.dumps(page)
+            return fx
+        unresolved = bb_fixture("commit-head")
+        unresolved.update(returncode=1, stdout="", stderr="Error: 404 Not Found\n")
+        cut = bb_fixture("pr-open-page-2")   # page 2 answered by the recorded no-context failure
+        cut.update(returncode=1, stdout="", stderr=bb_fixture("pr-branch-no-context")["stderr"])
+        cases = [
+            ("no bkt context", dict(head="fn-bb-test/pr-1", bkt=[bb_fixture("pr-branch-no-context")])),
+            ("short hash unresolved", dict(head="fn-bb-test/pr-1", bkt=[bb_fixture("pr-branch-open"), unresolved])),
+            ("incomplete pagination", dict(state="open", limit=1000, bkt=[bb_fixture("pr-open-page-1"), cut,
+                                                                  bb_fixture("commit-head")])),
+            ("quote in branch", dict(head='fn"x')),
+            ("origin without repo", dict(head="b", origin="https://bitbucket.org/flownext.git")),
+            *((f"malformed: {name}", dict(head="fn-bb-test/pr-1", bkt=[malformed(change), bb_fixture("commit-head")]))
+              for name, change in (("no values", lambda p: p.pop("values")),
+                                   ("unknown state", lambda p: p["values"][0].update(state="OPENED")),
+                                   ("no id", lambda p: p["values"][0].pop("id")),
+                                   ("no head branch", lambda p: p["values"][0]["source"].pop("branch")))),
+        ]
+        for name, kwargs in cases:
+            with self.subTest(name):
+                f.repo_forge.cache_clear()
+                self.assertIsNone(self.listing(**kwargs)[0])
+
+    def test_missing_bkt_is_a_probe_failure(self):
+        fake = FakeCli(BITBUCKET_ORIGIN)
+        def run(argv, *args, **kwargs):
+            if argv[0] == "bkt":
+                raise FileNotFoundError("bkt")
+            return fake(argv, *args, **kwargs)
+        self.assertIsNone(self.run_with(run, lambda: f.forge_list_prs(self.repo, "b", state="all", limit=100)))
 
 
 def as_read(name: str, argv_tail: str, change=None) -> dict:

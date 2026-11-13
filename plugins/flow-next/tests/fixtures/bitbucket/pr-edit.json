@@ -1,0 +1,18 @@
+{
+  "argv": [
+    "bkt",
+    "pr",
+    "edit",
+    "29",
+    "--description",
+    "Updated sandbox body.",
+    "--workspace",
+    "flownext",
+    "--repo",
+    "flownext",
+    "--json"
+  ],
+  "returncode": 0,
+  "stdout": "{\n  \"pull_request\": {\n    \"id\": 29,\n    \"title\": \"test: flow-next Bitbucket adapter sandbox\",\n    \"description\": \"Updated sandbox body.\",\n    \"state\": \"OPEN\",\n    \"draft\": true,\n    \"created_on\": \"2026-11-13T08:54:53.520895+00:00\",\n    \"updated_on\": \"2026-11-13T08:55:09.632765+00:00\",\n    \"author\": {\n      \"display_name\": \"Flow Next Test\",\n      \"username\": \"\",\n      \"uuid\": \"{00000000-0000-0000-0000-000000000000}\",\n      \"account_id\": \"000000:00000000-0000-0000-0000-000000000000\"\n    },\n    \"source\": {\n      \"branch\": {\n        \"name\": \"fn-bb-test/pr-1\"\n      },\n      \"commit\": {\n        \"hash\": \"538fbb9b397b\"\n      },\n      \"repository\": {\n        \"slug\": \"\",\n        \"full_name\": \"flownext/flownext\",\n        \"links\": {\n          \"html\": {\n            \"href\": \"https://bitbucket.org/flownext/flownext\"\n          },\n          \"clone\": null\n        }\n      }\n    },\n    \"destination\": {\n      \"branch\": {\n        \"name\": \"fn-bb-test/sandbox-base\"\n      },\n      \"commit\": {\n        \"hash\": \"a3d5225d93fd\"\n      },\n      \"repository\": {\n        \"slug\": \"\",\n        \"full_name\": \"flownext/flownext\",\n        \"links\": {\n          \"html\": {\n            \"href\": \"https://bitbucket.org/flownext/flownext\"\n          },\n          \"clone\": null\n        }\n      }\n    },\n    \"links\": {\n      \"html\": {\n        \"href\": \"https://bitbucket.org/flownext/flownext/pull-requests/29\"\n      }\n    },\n    \"reviewers\": [],\n    \"summary\": {\n      \"raw\": \"Updated sandbox body.\"\n    }\n  },\n  \"repo\": \"flownext\",\n  \"workspace\": \"flownext\"\n}\n",
+  "stderr": ""
+}

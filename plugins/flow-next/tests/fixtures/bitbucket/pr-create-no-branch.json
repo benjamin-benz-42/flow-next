@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "bkt",
+    "pr",
+    "create",
+    "--title",
+    "nobranch",
+    "--description",
+    "x",
+    "--source",
+    "fn-bb-test/does-not-exist",
+    "--target",
+    "fn-bb-test/sandbox-base",
+    "--workspace",
+    "flownext",
+    "--repo",
+    "flownext",
+    "--json"
+  ],
+  "returncode": 1,
+  "stdout": "",
+  "stderr": "Error: 400 Bad Request: source: branch not found: fn-bb-test/does-not-exist\n"
+}

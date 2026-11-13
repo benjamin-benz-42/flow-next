@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "bkt",
+    "auth",
+    "status"
+  ],
+  "returncode": 0,
+  "stdout": "Hosts:\n  https://api.bitbucket.org/2.0 (cloud)\n    user: user-flownext\n    auth: oauth\n    token source: keyring\n    expires: 2026-01-01T00:00:00+00:00 (in 1h0m0s)\n\nContexts:\n  * cloud (host: api.bitbucket.org)\n    workspace: flownext\n",
+  "stderr": ""
+}

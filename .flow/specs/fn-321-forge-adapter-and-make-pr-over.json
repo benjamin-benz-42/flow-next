@@ -1,0 +1,33 @@
+{
+  "branch_name": "fn-321-forge-adapter-and-make-pr-over",
+  "completion_review_status": "unknown",
+  "completion_reviewed_at": null,
+  "created_at": "2026-11-13T08:48:15.268234Z",
+  "default_impl": null,
+  "default_review": null,
+  "default_sync": null,
+  "depends_on_epics": [],
+  "id": "fn-321-forge-adapter-and-make-pr-over",
+  "impl_review_rounds": {},
+  "next_task": 1,
+  "no_plan": true,
+  "plan_review_rounds": 0,
+  "plan_review_status": "unknown",
+  "plan_reviewed_at": null,
+  "ready": true,
+  "spec_path": ".flow/specs/fn-321-forge-adapter-and-make-pr-over.md",
+  "status": "open",
+  "title": "Forge adapter and make-pr over Bitbucket Cloud pull requests",
+  "tracker": {
+    "baseHashFlow": null,
+    "baseHashTracker": null,
+    "depRelations": [],
+    "id": null,
+    "identifier": null,
+    "lastSyncedAt": null,
+    "mergeBaseFlow": null,
+    "mergeBaseTracker": null,
+    "url": null
+  },
+  "updated_at": "2026-11-13T08:50:07.889419Z"
+}

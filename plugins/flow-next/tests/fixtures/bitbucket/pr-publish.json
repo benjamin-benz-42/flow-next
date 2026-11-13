@@ -1,0 +1,15 @@
+{
+  "argv": [
+    "bkt",
+    "pr",
+    "publish",
+    "29",
+    "--workspace",
+    "flownext",
+    "--repo",
+    "flownext"
+  ],
+  "returncode": 0,
+  "stdout": "\u2713 Published pull request #29\n",
+  "stderr": ""
+}

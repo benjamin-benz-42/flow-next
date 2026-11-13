@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "bkt",
+    "context",
+    "list",
+    "--json"
+  ],
+  "returncode": 0,
+  "stdout": "{\n  \"contexts\": null\n}\n",
+  "stderr": "",
+  "note": "recorded verbatim with no bkt context configured"
+}

@@ -23816,6 +23816,79 @@ def _gitlab_merge_rows(repo: Path, origin: "ForgeOrigin", branch: str) -> Option
     return rows, files
 
 
+# Bitbucket Cloud pages at 50. DECLINED and SUPERSEDED pull requests are closed.
+_BITBUCKET_PAGELEN = 50
+_BITBUCKET_PR_STATES = {"OPEN": "OPEN", "MERGED": "MERGED", "DECLINED": "CLOSED", "SUPERSEDED": "CLOSED"}
+
+
+def _bkt_get(endpoint: str, params: list, deadline: float) -> Optional[Any]:
+    """One `bkt api` GET through bkt's active context, parsed; None when it failed."""
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        return None
+    argv = ["bkt", "api", endpoint] + [arg for param in params for arg in ("-P", param)]
+    try:
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=remaining, check=False)
+        return json.loads(proc.stdout) if proc.returncode == 0 else None
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return None
+
+
+def _bitbucket_full_sha(repo: Path, endpoint: str, sha: str, deadline: float) -> Optional[str]:
+    """Bitbucket lists abbreviated hashes: the local clone or the commit endpoint expands one."""
+    local = subprocess.run(["git", "rev-parse", "--verify", "--quiet", f"{sha}^{{commit}}"],
+                           cwd=repo, capture_output=True, text=True, check=False)
+    full = local.stdout.strip() if local.returncode == 0 else ""
+    if not full:
+        commit = _bkt_get(f"{endpoint}/commit/{sha}", [], deadline)
+        full = commit.get("hash") if isinstance(commit, dict) and isinstance(commit.get("hash"), str) else ""
+    return full if re.fullmatch(r"[0-9a-f]{40}", full) and full.startswith(sha) else None
+
+
+def _bitbucket_list_prs(repo: Path, origin: "ForgeOrigin", head: Optional[str], *,
+                        state: str, limit: int) -> Optional[list]:
+    """Pull requests opened from the origin repository itself (a fork's may share the branch name)."""
+    project = origin.project or ""
+    if not re.fullmatch(r"[^/\s\"]+/[^/\s\"]+", project) or (head and re.search(r"[\"\\]", head)):
+        return None
+    endpoint = f"/repositories/{project}"
+    # With a `q` filter Bitbucket ignores the `state` parameter, so the states go into the query.
+    states = list(_BITBUCKET_PR_STATES) if state == "all" else ["OPEN"]
+    query = (f'source.repository.full_name="{project}"' + (f' AND source.branch.name="{head}"' if head else "")
+             + " AND (" + " OR ".join(f'state="{s}"' for s in states) + ")")
+    deadline = time.monotonic() + _FORGE_PROBE_TIMEOUT_S
+    rows, page = [], 1
+    while True:
+        listed = _bkt_get(f"{endpoint}/pullrequests", [f"q={query}", f"pagelen={_BITBUCKET_PAGELEN}",
+                                                       f"page={page}"], deadline)
+        values = listed.get("values") if isinstance(listed, dict) else None
+        if not isinstance(values, list):
+            return None
+        for pr in values:
+            if not (isinstance(pr, dict) and isinstance(pr.get("id"), int)
+                    and pr.get("state") in _BITBUCKET_PR_STATES
+                    and isinstance(((pr.get("links") or {}).get("html") or {}).get("href"), str)
+                    and isinstance(((pr.get("source") or {}).get("branch") or {}).get("name"), str)
+                    and isinstance(((pr.get("source") or {}).get("commit") or {}).get("hash"), str)
+                    and isinstance(((pr.get("destination") or {}).get("branch") or {}).get("name"), str)):
+                return None
+            sha = _bitbucket_full_sha(repo, endpoint, pr["source"]["commit"]["hash"], deadline)
+            if sha is None:
+                return None
+            # Bitbucket keeps no merge time on the pull request; `updated_on` moves with
+            # every later comment, so it is never reported as one.
+            rows.append({"number": pr["id"], "url": pr["links"]["html"]["href"],
+                         "state": _BITBUCKET_PR_STATES[pr["state"]],
+                         "headRefName": pr["source"]["branch"]["name"], "headRefOid": sha,
+                         "baseRefName": pr["destination"]["branch"]["name"], "mergedAt": None,
+                         "isDraft": pr.get("draft") is True})
+        if not listed.get("next"):
+            return rows
+        if len(rows) >= limit:
+            return rows
+        page += 1
+
+
 # Forge name -> its reads. A forge claims an origin host through `owns_host`;
 # an adapter may lack a read, and its callers then report that read as
 # unsupported on this forge.
@@ -23824,8 +23897,11 @@ FORGE_ADAPTERS: dict[str, dict[str, Any]] = {
                "approval_rows": _gh_pr_rows},
     "gitlab": {"owns_host": _gitlab_owns_host, "list_prs": _gitlab_list_prs,
                "readiness": _gitlab_readiness, "merge_rows": _gitlab_merge_rows},
+    "bitbucket": {"list_prs": _bitbucket_list_prs},
 }
-_FORGE_HOSTS = {"github.com": "github", "ssh.github.com": "github", "gitlab.com": "gitlab"}
+_FORGE_HOSTS = {"github.com": "github", "ssh.github.com": "github", "gitlab.com": "gitlab",
+                "bitbucket.org": "bitbucket", "ssh.bitbucket.org": "bitbucket",
+                "altssh.bitbucket.org": "bitbucket"}
 
 
 class ForgeOrigin(NamedTuple):
