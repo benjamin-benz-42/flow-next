@@ -1,7 +1,7 @@
 {
   "branch_name": "fn-321-forge-adapter-and-make-pr-over",
-  "completion_review_status": "unknown",
-  "completion_reviewed_at": null,
+  "completion_review_status": "not_required",
+  "completion_reviewed_at": "2026-11-13T09:20:29.468563Z",
   "created_at": "2026-11-13T08:48:15.268234Z",
   "default_impl": null,
   "default_review": null,
@@ -9,7 +9,7 @@
   "depends_on_epics": [],
   "id": "fn-321-forge-adapter-and-make-pr-over",
   "impl_review_rounds": {
-    "fn-321-forge-adapter-and-make-pr-over.1": 1
+    "fn-321-forge-adapter-and-make-pr-over.1": 0
   },
   "next_task": 1,
   "no_plan": true,
@@ -101,9 +101,95 @@
       "task": "fn-321-forge-adapter-and-make-pr-over.1",
       "timestamp": "2026-11-13T09:14:53.331372Z",
       "verdict": "NEEDS_WORK"
+    },
+    {
+      "artifact_sha256": "8d1be810e3601cfceb2fd7f4302c4c990c2ef005451fc238b6059200c02a0305",
+      "backend": "codex",
+      "base_sha": "d00b601bf8a86949a4201829edbffa37c41a9a43",
+      "counter_kind": "impl",
+      "effort": "high",
+      "failure_class": null,
+      "finalized": {
+        "digest": "complete",
+        "receipt": "complete",
+        "status": "not_applicable"
+      },
+      "findings_digest": {
+        "backend": "codex",
+        "digest_truncated": false,
+        "items": [
+          {
+            "chainRoot": "finding-6bccde2b43510f96dce2bbcd64a40401",
+            "classification": "introduced",
+            "findingId": "finding-6bccde2b43510f96dce2bbcd64a40401",
+            "firstSeenThisRound": false,
+            "severity": "P1",
+            "status": "fixed"
+          },
+          {
+            "chainRoot": "finding-cf316f12ff6c088ec3952999e1c5a808",
+            "classification": "introduced",
+            "findingId": "finding-cf316f12ff6c088ec3952999e1c5a808",
+            "firstSeenThisRound": false,
+            "severity": "P1",
+            "status": "fixed"
+          },
+          {
+            "chainRoot": "finding-4e0ac0f05390a452750f51e296d0b417",
+            "classification": "introduced",
+            "findingId": "finding-4e0ac0f05390a452750f51e296d0b417",
+            "firstSeenThisRound": false,
+            "severity": "P1",
+            "status": "fixed"
+          },
+          {
+            "chainRoot": "finding-247dda2333e45d0e7300df611f0af1fb",
+            "classification": "introduced",
+            "findingId": "finding-247dda2333e45d0e7300df611f0af1fb",
+            "firstSeenThisRound": false,
+            "severity": "P2",
+            "status": "withdrawn"
+          },
+          {
+            "chainRoot": "finding-c917109776dece3352af67c47ba6ec5a",
+            "classification": "introduced",
+            "findingId": "finding-c917109776dece3352af67c47ba6ec5a",
+            "firstSeenThisRound": false,
+            "severity": "P2",
+            "status": "fixed"
+          },
+          {
+            "chainRoot": "finding-4f614f2554470807705a441262a813f4",
+            "classification": "introduced",
+            "findingId": "finding-4f614f2554470807705a441262a813f4",
+            "firstSeenThisRound": false,
+            "severity": "P2",
+            "status": "fixed"
+          }
+        ],
+        "reviewKind": "implementation"
+      },
+      "forced": false,
+      "hash_epoch": 0,
+      "head_sha": "c91cb65df6d87f9fdd73e69924a4592bd11c2f58",
+      "head_sha_observed": true,
+      "kind": "impl",
+      "model": "gpt-6.1-sol",
+      "outcome": "verdict",
+      "output_bytes": 1939,
+      "output_sha256": "87240a7224dac8ff2efd1d8350abcc0a46cbb10d2b5bf98bfd0be1eb2226ccc2",
+      "reservation_id": "a90dbcc2f21e49f2b17998f3f1b0a186",
+      "round_consumed": true,
+      "scope": "impl:fn-321-forge-adapter-and-make-pr-over.1",
+      "superseded_by": null,
+      "task": "fn-321-forge-adapter-and-make-pr-over.1",
+      "timestamp": "2026-11-13T09:20:12.589122Z",
+      "verdict": "SHIP"
     }
   ],
-  "review_hash_epoch": {},
+  "review_hash_epoch": {
+    "impl:fn-321-forge-adapter-and-make-pr-over.1": 1
+  },
   "review_pending_rounds": {},
   "review_reservations": {},
   "review_transport_failures": {
@@ -123,5 +209,5 @@
     "mergeBaseTracker": null,
     "url": null
   },
-  "updated_at": "2026-11-13T09:14:53.334541Z"
+  "updated_at": "2026-11-13T09:20:29.468740Z"
 }
