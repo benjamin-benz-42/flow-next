@@ -10,13 +10,91 @@
     "fn-321-forge-adapter-and-make-pr-over"
   ],
   "id": "fn-322-resolve-pr-over-bitbucket-cloud-pull",
-  "impl_review_rounds": {},
+  "impl_review_rounds": {
+    "fn-322-resolve-pr-over-bitbucket-cloud-pull.1": 1
+  },
   "next_task": 1,
   "no_plan": true,
   "plan_review_rounds": 0,
   "plan_review_status": "unknown",
   "plan_reviewed_at": null,
   "ready": true,
+  "review_attempts": [
+    {
+      "artifact_sha256": "e6f944aab19e8398b051993cf50f37e33e64a524023b9cd5461a9dd39c039dcb",
+      "backend": "codex",
+      "base_sha": "70cfd1976f1630f5e5316e9b451ebc4b0713a384",
+      "counter_kind": "impl",
+      "effort": "high",
+      "failure_class": null,
+      "finalized": {
+        "digest": "complete",
+        "receipt": "complete",
+        "status": "not_applicable"
+      },
+      "findings_digest": {
+        "backend": "codex",
+        "digest_truncated": false,
+        "items": [
+          {
+            "chainRoot": "finding-e968dccf1026cf874cb285f3200c5003",
+            "classification": "introduced",
+            "findingId": "finding-e968dccf1026cf874cb285f3200c5003",
+            "firstSeenThisRound": true,
+            "severity": "P1",
+            "status": "open"
+          },
+          {
+            "chainRoot": "finding-fb0a041379ee89fc54cd2ca8f084c6d5",
+            "classification": "introduced",
+            "findingId": "finding-fb0a041379ee89fc54cd2ca8f084c6d5",
+            "firstSeenThisRound": true,
+            "severity": "P2",
+            "status": "open"
+          },
+          {
+            "chainRoot": "finding-3fc007d8ceaa9e3018f14b6f6dbc2717",
+            "classification": "introduced",
+            "findingId": "finding-3fc007d8ceaa9e3018f14b6f6dbc2717",
+            "firstSeenThisRound": true,
+            "severity": "P2",
+            "status": "open"
+          },
+          {
+            "chainRoot": "finding-5141e606ed081cce84268dd9b06c8485",
+            "classification": "introduced",
+            "findingId": "finding-5141e606ed081cce84268dd9b06c8485",
+            "firstSeenThisRound": true,
+            "severity": "P2",
+            "status": "open"
+          }
+        ],
+        "reviewKind": "implementation"
+      },
+      "forced": false,
+      "hash_epoch": 0,
+      "head_sha": "7efdb740ac986583794465ad2b3576ac7012a438",
+      "head_sha_observed": true,
+      "kind": "impl",
+      "model": "gpt-6.1-sol",
+      "outcome": "verdict",
+      "output_bytes": 3091,
+      "output_sha256": "08af8fe6d8287684e0310f6227234b415f89c25e6480c53b17c6b8dafc7f78a9",
+      "reservation_id": "b90202a219484b6d8b40f06080f59769",
+      "round_consumed": true,
+      "scope": "impl:fn-322-resolve-pr-over-bitbucket-cloud-pull.1",
+      "superseded_by": null,
+      "task": "fn-322-resolve-pr-over-bitbucket-cloud-pull.1",
+      "timestamp": "2026-11-13T09:39:24.714386Z",
+      "verdict": "NEEDS_WORK"
+    }
+  ],
+  "review_hash_epoch": {},
+  "review_pending_rounds": {},
+  "review_reservations": {},
+  "review_transport_failures": {
+    "impl:fn-322-resolve-pr-over-bitbucket-cloud-pull.1": 0
+  },
   "spec_path": ".flow/specs/fn-322-resolve-pr-over-bitbucket-cloud-pull.md",
   "status": "open",
   "title": "resolve-pr over Bitbucket Cloud pull request comments",
@@ -31,5 +109,5 @@
     "mergeBaseTracker": null,
     "url": null
   },
-  "updated_at": "2026-11-13T09:20:40.007910Z"
+  "updated_at": "2026-11-13T09:39:24.717631Z"
 }

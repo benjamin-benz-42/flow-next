@@ -35,9 +35,13 @@ printf '%s' "$ALL" | jq -e 'all(.[]; type == "object" and (.id | type) == "numbe
 OUTDATED='{}'
 for ID in $(printf '%s' "$ALL" | jq -r '.[] | select(.parent == null and .deleted != true and .pending != true
                                                      and .resolution == null and .inline != null) | .id'); do
-  ONE=$(bkt api "$ENDPOINT/$ID")
-  OUTDATED=$(printf '%s\n%s' "$OUTDATED" "$ONE" | jq -cs --arg id "$ID" '.[0] + {($id): (.[1].inline.outdated == true)}') \
+  ONE=$(bkt api "$ENDPOINT/$ID") || { echo "get-bitbucket-comments: cannot read comment $ID" >&2; exit 1; }
+  # The comment asked for, with its inline anchor; anything else is unreadable, never "current".
+  FLAG=$(printf '%s' "$ONE" | jq -er --arg id "$ID" '
+    select(type == "object" and (.id | tostring) == $id and (.inline | type) == "object")
+    | if .inline.outdated == true then "true" else "false" end') \
     || { echo "get-bitbucket-comments: unreadable comment $ID" >&2; exit 1; }
+  OUTDATED=$(printf '%s' "$OUTDATED" | jq -c --arg id "$ID" --argjson f "$FLAG" '. + {($id): $f}')
 done
 
 # Both reach jq on stdin: Linux caps one argument at 128 KiB, which a long review's listing passes.

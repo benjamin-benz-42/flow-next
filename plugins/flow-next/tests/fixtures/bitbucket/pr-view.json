@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "bkt",
+    "pr",
+    "view",
+    "30",
+    "--workspace",
+    "flownext",
+    "--repo",
+    "flownext",
+    "--json"
+  ],
+  "returncode": 0,
+  "stdout": "{\n  \"pull_request\": {\n    \"id\": 30,\n    \"title\": \"test: flow-next Bitbucket adapter E2E sandbox\",\n    \"description\": \"Updated E2E body.\",\n    \"state\": \"OPEN\",\n    \"draft\": false,\n    \"created_on\": \"2026-11-13T09:07:17.824064+00:00\",\n    \"updated_on\": \"2026-11-13T09:30:32.503242+00:00\",\n    \"author\": {\n      \"display_name\": \"Flow Next Test\",\n      \"username\": \"\",\n      \"uuid\": \"{00000000-0000-0000-0000-000000000000}\",\n      \"account_id\": \"000000:00000000-0000-0000-0000-000000000000\"\n    },\n    \"source\": {\n      \"branch\": {\n        \"name\": \"fn-bb-test/pr-2\"\n      },\n      \"commit\": {\n        \"hash\": \"3851dad1ef84\"\n      },\n      \"repository\": {\n        \"slug\": \"\",\n        \"full_name\": \"flownext/flownext\",\n        \"links\": {\n          \"html\": {\n            \"href\": \"https://bitbucket.org/flownext/flownext\"\n          },\n          \"clone\": null\n        }\n      }\n    },\n    \"destination\": {\n      \"branch\": {\n        \"name\": \"fn-bb-test/sandbox-base\"\n      },\n      \"commit\": {\n        \"hash\": \"a3d5225d93fd\"\n      },\n      \"repository\": {\n        \"slug\": \"\",\n        \"full_name\": \"flownext/flownext\",\n        \"links\": {\n          \"html\": {\n            \"href\": \"https://bitbucket.org/flownext/flownext\"\n          },\n          \"clone\": null\n        }\n      }\n    },\n    \"links\": {\n      \"html\": {\n        \"href\": \"https://bitbucket.org/flownext/flownext/pull-requests/30\"\n      }\n    },\n    \"reviewers\": [],\n    \"participants\": [\n      {\n        \"user\": {\n          \"uuid\": \"{00000000-0000-0000-0000-000000000000}\",\n          \"username\": \"\",\n          \"nickname\": \"flownext-test\",\n          \"account_id\": \"000000:00000000-0000-0000-0000-000000000000\",\n          \"display_name\": \"Flow Next Test\"\n        },\n        \"role\": \"PARTICIPANT\",\n        \"approved\": false\n      }\n    ],\n    \"summary\": {\n      \"raw\": \"Updated E2E body.\"\n    }\n  },\n  \"repo\": \"flownext\",\n  \"workspace\": \"flownext\"\n}\n",
+  "stderr": ""
+}

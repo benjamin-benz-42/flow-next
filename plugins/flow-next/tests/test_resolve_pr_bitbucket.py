@@ -67,12 +67,30 @@ class FetchTests(CommentCase):
             "size says comments are missing": [self.as_bkt("comments-open", lambda p: {**p, "size": 99})],
             "row without id": [self.as_bkt("comments-open", lambda p: {**p, "values": [{"deleted": False}]})],
             "detail read fails": [recorded("comments-open"), self.as_bkt("comment-inline-outdated", returncode=1, stdout="")],
+            "detail empty": [recorded("comments-open"), self.as_bkt("comment-inline-outdated", stdout="")],
+            "detail null": [recorded("comments-open"), self.as_bkt("comment-inline-outdated", stdout="null")],
+            "detail of another comment": [recorded("comments-open"),
+                                          self.as_bkt("comment-inline-outdated", lambda c: {**c, "id": 1})],
+            "detail without inline anchor": [recorded("comments-open"),
+                                             self.as_bkt("comment-inline-outdated", lambda c: {**c, "inline": None})],
         }
         for name, fixtures in cases.items():
             with self.subTest(name):
                 result = self.fetch(*fixtures)
                 self.assertNotEqual(result.returncode, 0, result.stdout)
                 self.assertEqual(result.stdout, "")
+
+
+class PullRequestViewTests(CommentCase):
+    def test_the_fields_the_reference_reads(self):
+        # Phase 5 and Phase 7 read the destination, the source branch and the source repository.
+        view = self.run_sh(["bkt", "pr", "view", "30", "--workspace", "flownext", "--repo", "flownext", "--json"],
+                           BKT_ANSWERS=answers(recorded("pr-view")))
+        self.assertEqual(view.returncode, 0, view.stderr)
+        pr = json.loads(view.stdout)["pull_request"]
+        self.assertEqual((pr["source"]["branch"]["name"], pr["source"]["repository"]["full_name"],
+                          pr["destination"]["branch"]["name"]),
+                         ("fn-bb-test/pr-2", "flownext/flownext", "fn-bb-test/sandbox-base"))
 
 
 class ReplyResolveTests(CommentCase):
