@@ -55,3 +55,5 @@ With make-pr and resolve-pr working on Bitbucket, the last manual step of the lo
 Siblings: spec 1 (forge adapter and make-pr over Bitbucket) and spec 2 (resolve-pr over Bitbucket PR comments), which this depends on. All three come from issue #602.
 
 The stand-in a user wrote reported `updated_on` as the merge time, a display name as the merger, and only approvals as reviews; each of those would make merge evidence or spec approval wrong in a way a run cannot notice, which is why R2 and R3 name them. [paraphrase]
+
+**Amended 2026-11-13 during work.** Live runs settled three points the spec left open. Bitbucket's merge call takes no expected head, so land re-reads the head right before merging and confirms afterwards that the merged source commit is the head it gated, stopping `NEEDS_HUMAN` otherwise. A repository with no builds reports none, which is nothing to wait for; builds a repository requires block in Bitbucket's merge checks instead. A failed build stops `BLOCKED` naming it: land does not repair or rerun Bitbucket builds, since their logs could not be recorded live on the sandbox (it has no pipelines). [inferred]

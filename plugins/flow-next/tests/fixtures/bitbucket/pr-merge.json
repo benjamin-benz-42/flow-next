@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "bkt",
+    "pr",
+    "merge",
+    "30",
+    "--strategy",
+    "squash",
+    "--message",
+    "test: flow-next Bitbucket adapter E2E sandbox (#30)",
+    "--workspace",
+    "flownext",
+    "--repo",
+    "flownext"
+  ],
+  "returncode": 0,
+  "stdout": "\u2713 Merged pull request #30\n",
+  "stderr": ""
+}

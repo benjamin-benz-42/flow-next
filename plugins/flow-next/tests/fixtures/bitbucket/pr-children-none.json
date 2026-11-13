@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "bkt",
+    "api",
+    "/repositories/flownext/flownext/pullrequests",
+    "-P",
+    "q=destination.branch.name=\"fn-bb-test/pr-1\" AND state=\"OPEN\""
+  ],
+  "returncode": 0,
+  "stdout": "{\"values\": [], \"pagelen\": 10, \"size\": 0, \"page\": 1}",
+  "stderr": ""
+}

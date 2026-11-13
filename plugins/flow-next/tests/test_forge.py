@@ -283,8 +283,9 @@ class BitbucketAdapterTests(ForgeTestCase):
         none, _ = self.listing("fn-bb-test/none", bkt=[bb_fixture("pr-branch-none")])
         self.assertEqual(none, [])
 
-    def test_declined_and_superseded_are_closed_and_merge_time_is_never_updated_on(self):
-        for bb_state in ("DECLINED", "SUPERSEDED", "MERGED"):
+    def test_declined_and_superseded_are_closed(self):
+        # MERGED rows and their merge time: BitbucketLandReadTests.
+        for bb_state in ("DECLINED", "SUPERSEDED"):
             with self.subTest(bb_state):
                 fx = bb_fixture("pr-branch-open")
                 page = json.loads(fx["stdout"])
@@ -292,8 +293,7 @@ class BitbucketAdapterTests(ForgeTestCase):
                 fx["stdout"] = json.dumps(page)
                 f.repo_forge.cache_clear()
                 rows, _ = self.listing("fn-bb-test/pr-1", bkt=[fx, bb_fixture("commit-head")])
-                self.assertEqual(rows[0]["state"], "MERGED" if bb_state == "MERGED" else "CLOSED")
-                self.assertIsNone(rows[0]["mergedAt"])
+                self.assertEqual((rows[0]["state"], rows[0]["mergedAt"]), ("CLOSED", None))
 
     def test_open_listing_follows_next_links(self):
         rows, _ = self.listing(state="open", limit=1000,
@@ -340,6 +340,122 @@ class BitbucketAdapterTests(ForgeTestCase):
                 raise FileNotFoundError("bkt")
             return fake(argv, *args, **kwargs)
         self.assertIsNone(self.run_with(run, lambda: f.forge_list_prs(self.repo, "b", state="all", limit=100)))
+
+
+def bb_changed(name: str, change=None, **fields) -> dict:
+    """A recorded bkt answer with its parsed stdout changed, for shapes the sandbox cannot produce."""
+    fx = bb_fixture(name)
+    if change:
+        fx["stdout"] = json.dumps(change(json.loads(fx["stdout"])))
+    fx.update(fields)
+    return fx
+
+
+class BitbucketLandReadTests(ForgeTestCase):
+    """Merge evidence, spec approval and merge readiness, replaying the sandbox pull requests:
+    30 merged (squash) into a throwaway base, 29 open with no builds and no reviewers."""
+
+    MERGED = ("pr-branch-merged", "commit-merged-head", "pr-activity-merged")
+    OPEN = ("pr-detail-open", "commit-head", "pr-mergeability-clean", "pr-statuses-none")
+
+    def run_fake(self, fn, bkt):
+        return self.run_with(FakeCli(BITBUCKET_ORIGIN, bkt=bkt), fn)
+
+    def merged(self, *extra, **swap):
+        return [swap.get(name) or bb_fixture(name) for name in self.MERGED] + list(extra)
+
+    def test_merged_row_carries_the_merge_time_from_activity_not_updated_on(self):
+        rows = self.run_fake(lambda: f.forge_list_prs(self.repo, "fn-bb-test/pr-2", state="all", limit=100), self.merged())
+        self.assertEqual((rows[0]["state"], rows[0]["mergedAt"]), ("MERGED", "2026-11-13T09:44:02.728288+00:00"))
+        updated_on = json.loads(bb_fixture("pr-branch-merged")["stdout"])["values"][0]["updated_on"]
+        self.assertNotEqual(rows[0]["mergedAt"], updated_on)
+        no_merge = bb_changed("pr-activity-merged", lambda a: {**a, "values": [v for v in a["values"]
+                                                                               if (v.get("update") or {}).get("state") != "MERGED"]})
+        f.repo_forge.cache_clear()
+        rows = self.run_fake(lambda: f.forge_list_prs(self.repo, "fn-bb-test/pr-2", state="all", limit=100),
+                             self.merged(**{"pr-activity-merged": no_merge}))
+        self.assertIsNone(rows[0]["mergedAt"], "an undeterminable merge time is unknown")
+        f.repo_forge.cache_clear()
+        failed = bb_changed("pr-activity-merged", returncode=1, stdout="")
+        self.assertIsNone(self.run_fake(lambda: f.forge_list_prs(self.repo, "fn-bb-test/pr-2", state="all", limit=100),
+                                        self.merged(**{"pr-activity-merged": failed})))
+
+    def test_merge_rows_name_each_merged_pull_requests_paths(self):
+        read = lambda: f._forge_read(self.repo, "merge_rows")
+        result = self.run_fake(lambda: read()[0](self.repo, read()[2], "fn-bb-test/pr-2"),
+                               self.merged(bb_fixture("pr-diffstat-merged")))
+        rows, files = result
+        self.assertEqual([r["number"] for r in rows], [30])
+        self.assertEqual(files[30][-1], ".fn-bb-test/README2")
+        self.assertEqual(len(files[30]), 5)
+        f.repo_forge.cache_clear()
+        broken = bb_changed("pr-diffstat-merged", lambda d: {**d, "values": [{"status": "added"}]})
+        self.assertIsNone(self.run_fake(lambda: read()[0](self.repo, read()[2], "fn-bb-test/pr-2"), self.merged(broken)))
+
+    def test_approval_rows_count_approvals_never_changes_requested(self):
+        def reviewers(pr):
+            first, = pr["participants"]
+            return {**pr, "participants": [
+                {**first, "approved": True, "participated_on": "2026-11-13T09:40:00+00:00",
+                 "user": {**first["user"], "account_id": "approver-1"}},
+                {**first, "approved": False, "state": "changes_requested", "user": {**first["user"], "account_id": "objector-1"}}]}
+        rows, reason = self.run_fake(lambda: f.forge_approval_rows("fn-bb-test/pr-2", self.repo),
+                                     self.merged(bb_changed("pr-detail-merged", reviewers)))
+        self.assertEqual(reason, "")
+        approval = f._pr_approval(rows[0])
+        self.assertEqual([a["login"] for a in approval["approvers"]], ["approver-1"])
+        self.assertEqual(approval["merged_by"], "000000:00000000-0000-0000-0000-000000000000")
+        self.assertEqual(approval["merged_at"], "2026-11-13T09:44:02.728288+00:00")
+        f.repo_forge.cache_clear()
+        rows, reason = self.run_fake(lambda: f.forge_approval_rows("fn-bb-test/pr-2", self.repo),
+                                     self.merged(bb_changed("pr-detail-merged", returncode=1, stdout="")))
+        self.assertIsNone(rows)
+        self.assertIn("forge unreachable", reason)
+
+    def readiness(self, **swap):
+        bkt = [swap.get(name) or bb_fixture(name) for name in self.OPEN]
+        return self.run_fake(lambda: f.forge_readiness(self.repo, 29), bkt)
+
+    def test_readiness_of_the_recorded_open_pull_request(self):
+        self.assertEqual(self.readiness(), {
+            "head_sha": "538fbb9b397b79601fff0db6aceb5f5cf1e60dbd", "mergeable": "MERGEABLE", "merge_state": "CLEAN",
+            "builds": None, "approval": "none", "draft": False, "green": True, "ready": True})
+
+    def test_readiness_gates(self):
+        head = "538fbb9b397b"
+        def statuses(*pairs):
+            return bb_changed("pr-statuses-none", lambda p: {**p, "size": len(pairs), "values": [
+                {"type": "build", "key": f"b{i}", "state": state, "commit": {"hash": sha}} for i, (sha, state) in enumerate(pairs)]})
+        def mergeability(mergeable, status):
+            return bb_changed("pr-mergeability-clean", lambda m: {**m, "mergeable": mergeable, "mergeStateStatus": status})
+        def detail(change):
+            return bb_changed("pr-detail-open", change)
+        cases = [
+            ("green build", {"pr-statuses-none": statuses((head, "SUCCESSFUL"))}, ("SUCCESSFUL", True, True)),
+            ("build running", {"pr-statuses-none": statuses((head, "SUCCESSFUL"), (head, "INPROGRESS"))}, ("INPROGRESS", False, False)),
+            ("build failed", {"pr-statuses-none": statuses((head, "FAILED"))}, ("FAILED", False, False)),
+            ("an earlier head's failure", {"pr-statuses-none": statuses(("0000000000aa", "FAILED"))}, (None, True, True)),
+            ("conflict", {"pr-mergeability-clean": mergeability("CONFLICTING", "DIRTY")}, (None, True, False)),
+            ("blocked by merge checks", {"pr-mergeability-clean": mergeability("MERGEABLE", "BLOCKED")}, (None, True, False)),
+            ("changes requested", {"pr-detail-open": detail(lambda pr: {**pr, "participants": [
+                {"user": {}, "approved": False, "state": "changes_requested"}]})}, (None, True, False)),
+            ("draft", {"pr-detail-open": detail(lambda pr: {**pr, "draft": True})}, (None, True, False)),
+        ]
+        for name, swap, (builds, green, ready) in cases:
+            with self.subTest(name):
+                f.repo_forge.cache_clear()
+                got = self.readiness(**swap)
+                self.assertEqual((got["builds"], got["green"], got["ready"]), (builds, green, ready))
+
+    def test_unreadable_readiness_is_never_ready(self):
+        for name, swap in (("mergeability fails", {"pr-mergeability-clean": bb_changed("pr-mergeability-clean", returncode=1, stdout="")}),
+                           ("statuses fail", {"pr-statuses-none": bb_changed("pr-statuses-none", returncode=1, stdout="")}),
+                           ("unknown build state", {"pr-statuses-none": bb_changed("pr-statuses-none", lambda p: {**p, "values": [{"state": "WEIRD"}]})}),
+                           ("pull request unreadable", {"pr-detail-open": bb_changed("pr-detail-open", returncode=1, stdout="")})):
+            with self.subTest(name):
+                f.repo_forge.cache_clear()
+                got = self.readiness(**swap)
+                self.assertEqual((got["green"], got["ready"]), (False, False))
 
 
 def as_read(name: str, argv_tail: str, change=None) -> dict:

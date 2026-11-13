@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "bkt",
+    "pr",
+    "mergeability",
+    "30",
+    "--workspace",
+    "flownext",
+    "--repo",
+    "flownext",
+    "--json"
+  ],
+  "returncode": 0,
+  "stdout": "{\n  \"mergeable\": \"UNKNOWN\",\n  \"mergeStateStatus\": \"BLOCKED\",\n  \"checks\": [\n    {\n      \"type\": \"pullrequest_state_check\",\n      \"status\": \"FAILED\",\n      \"required\": true,\n      \"blocking\": true,\n      \"state\": \"MERGED\"\n    }\n  ]\n}\n",
+  "stderr": ""
+}

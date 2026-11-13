@@ -1,0 +1,16 @@
+{
+  "argv": [
+    "bkt",
+    "pr",
+    "mergeability",
+    "29",
+    "--workspace",
+    "flownext",
+    "--repo",
+    "flownext",
+    "--json"
+  ],
+  "returncode": 0,
+  "stdout": "{\n  \"mergeable\": \"MERGEABLE\",\n  \"mergeStateStatus\": \"CLEAN\",\n  \"checks\": [\n    {\n      \"type\": \"pullrequest_state_check\",\n      \"status\": \"PASSED\",\n      \"required\": true,\n      \"blocking\": false,\n      \"state\": \"OPEN\"\n    },\n    {\n      \"type\": \"current_user_permission_check\",\n      \"status\": \"PASSED\",\n      \"required\": true,\n      \"blocking\": false\n    },\n    {\n      \"type\": \"git_mergeability_check\",\n      \"status\": \"PASSED\",\n      \"required\": true,\n      \"blocking\": false,\n      \"reason\": \"clean\"\n    }\n  ]\n}\n",
+  "stderr": ""
+}

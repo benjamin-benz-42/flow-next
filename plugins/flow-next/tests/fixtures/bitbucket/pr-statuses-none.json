@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "bkt",
+    "api",
+    "/repositories/flownext/flownext/pullrequests/29/statuses",
+    "-P",
+    "pagelen=100"
+  ],
+  "returncode": 0,
+  "stdout": "{\"values\": [], \"pagelen\": 100, \"size\": 0, \"page\": 1}",
+  "stderr": ""
+}

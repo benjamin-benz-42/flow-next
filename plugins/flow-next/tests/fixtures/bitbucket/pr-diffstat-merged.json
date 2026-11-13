@@ -1,0 +1,12 @@
+{
+  "argv": [
+    "bkt",
+    "api",
+    "/repositories/flownext/flownext/pullrequests/30/diffstat",
+    "-P",
+    "pagelen=100"
+  ],
+  "returncode": 0,
+  "stdout": "{\"values\":[{\"type\":\"diffstat\",\"lines_added\":31,\"lines_removed\":0,\"status\":\"added\",\"old\":null,\"new\":{\"path\":\".flow/specs/fn-22-bitbucket-adapter-sandbox.json\",\"type\":\"commit_file\",\"escaped_path\":\".flow/specs/fn-22-bitbucket-adapter-sandbox.json\",\"links\":{\"self\":{\"href\":\"https://api.bitbucket.org/2.0/repositories/flownext/flownext/src/3851dad1ef841f928cb7a75c151632ac79ac58ca/.flow/specs/fn-22-bitbucket-adapter-sandbox.json\"}}}},{\"type\":\"diffstat\",\"lines_added\":171,\"lines_removed\":0,\"status\":\"added\",\"old\":null,\"new\":{\"path\":\".flow/specs/fn-22-bitbucket-adapter-sandbox.md\",\"type\":\"commit_file\",\"escaped_path\":\".flow/specs/fn-22-bitbucket-adapter-sandbox.md\",\"links\":{\"self\":{\"href\":\"https://api.bitbucket.org/2.0/repositories/flownext/flownext/src/3851dad1ef841f928cb7a75c151632ac79ac58ca/.flow/specs/fn-22-bitbucket-adapter-sandbox.md\"}}}},{\"type\":\"diffstat\",\"lines_added\":14,\"lines_removed\":0,\"status\":\"added\",\"old\":null,\"new\":{\"path\":\".flow/tasks/fn-22-bitbucket-adapter-sandbox.1.json\",\"type\":\"commit_file\",\"escaped_path\":\".flow/tasks/fn-22-bitbucket-adapter-sandbox.1.json\",\"links\":{\"self\":{\"href\":\"https://api.bitbucket.org/2.0/repositories/flownext/flownext/src/3851dad1ef841f928cb7a75c151632ac79ac58ca/.flow/tasks/fn-22-bitbucket-adapter-sandbox.1.json\"}}}},{\"type\":\"diffstat\",\"lines_added\":16,\"lines_removed\":0,\"status\":\"added\",\"old\":null,\"new\":{\"path\":\".flow/tasks/fn-22-bitbucket-adapter-sandbox.1.md\",\"type\":\"commit_file\",\"escaped_path\":\".flow/tasks/fn-22-bitbucket-adapter-sandbox.1.md\",\"links\":{\"self\":{\"href\":\"https://api.bitbucket.org/2.0/repositories/flownext/flownext/src/3851dad1ef841f928cb7a75c151632ac79ac58ca/.flow/tasks/fn-22-bitbucket-adapter-sandbox.1.md\"}}}},{\"type\":\"diffstat\",\"lines_added\":1,\"lines_removed\":0,\"status\":\"added\",\"old\":null,\"new\":{\"path\":\".fn-bb-test/README2\",\"type\":\"commit_file\",\"escaped_path\":\".fn-bb-test/README2\",\"links\":{\"self\":{\"href\":\"https://api.bitbucket.org/2.0/repositories/flownext/flownext/src/3851dad1ef841f928cb7a75c151632ac79ac58ca/.fn-bb-test/README2\"}}}}],\"pagelen\":100,\"size\":5,\"page\":1}",
+  "stderr": ""
+}
