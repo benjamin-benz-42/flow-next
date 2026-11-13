@@ -1,0 +1,10 @@
+{
+  "argv": [
+    "bkt",
+    "auth",
+    "status"
+  ],
+  "returncode": 0,
+  "stdout": "No hosts configured. Run `bkt auth login` to add one.\n",
+  "stderr": ""
+}

@@ -32,7 +32,9 @@ if [[ "${1:-}" == auth-check ]]; then
   CONTEXTS=$(bkt context list --json 2>/dev/null) || fail "bkt context list failed"
   printf '%s' "$CONTEXTS" | jq -e '.active_context as $a | any(.contexts[]?; .name == $a and (.host | test("(^|//)api\\.bitbucket\\.org(/|$)")))' >/dev/null \
     || fail "no active bkt context for Bitbucket Cloud"
-  bkt auth status >/dev/null 2>&1 || fail "bkt is not logged in"
+  # Logged out, `bkt auth status` still exits 0 ("No hosts configured"): only a listed Cloud host counts.
+  STATUS=$(bkt auth status 2>&1) || fail "bkt auth status failed"
+  [[ "$STATUS" == *"api.bitbucket.org"*"(cloud)"* ]] || fail "bkt is not logged in to Bitbucket Cloud"
   exit 0
 fi
 

@@ -105,6 +105,11 @@ class HelperReadTests(BitbucketShellCase):
         none = self.run_sh([str(HELPER), "auth-check"], BKT_ANSWERS=answers(recorded("context-list-none"), recorded("auth-status")))
         self.assertEqual(none.returncode, 1)
         self.assertIn("no active bkt context for Bitbucket Cloud", none.stderr)
+        # Recorded with no bkt login: it exits 0, so the answer itself decides.
+        logged_out = self.run_sh([str(HELPER), "auth-check"],
+                                 BKT_ANSWERS=answers(recorded("context-list"), recorded("auth-status-logged-out")))
+        self.assertEqual(logged_out.returncode, 1)
+        self.assertIn("not logged in to Bitbucket Cloud", logged_out.stderr)
 
 
 class HelperWriteTests(BitbucketShellCase):
