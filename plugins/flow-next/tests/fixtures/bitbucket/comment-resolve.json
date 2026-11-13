@@ -1,0 +1,17 @@
+{
+  "argv": [
+    "bkt",
+    "pr",
+    "comments",
+    "resolve",
+    "30",
+    "901666329",
+    "--workspace",
+    "flownext",
+    "--repo",
+    "flownext"
+  ],
+  "returncode": 0,
+  "stdout": "\u2713 Resolved comment thread 901666329 on pull request #30\n",
+  "stderr": ""
+}

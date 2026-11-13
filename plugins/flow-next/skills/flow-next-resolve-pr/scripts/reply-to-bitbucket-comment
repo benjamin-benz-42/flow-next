@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PR_ID="${1:?Usage: echo REPLY_TEXT | $0 PR_ID COMMENT_ID}"
+COMMENT_ID="${2:?Usage: echo REPLY_TEXT | $0 PR_ID COMMENT_ID}"
+REPLY_TEXT=$(cat)
+[[ "${ORIGIN_PROJECT:-}" =~ ^[^/[:space:]]+/[^/[:space:]]+$ ]] || { echo "ORIGIN_PROJECT (workspace/repo) is not set" >&2; exit 2; }
+
+if [ -z "$REPLY_TEXT" ]; then
+  echo "Empty reply text on stdin; aborting" >&2
+  exit 1
+fi
+
+bkt pr comment "$PR_ID" --parent "$COMMENT_ID" --text "$REPLY_TEXT" \
+  --workspace "${ORIGIN_PROJECT%%/*}" --repo "${ORIGIN_PROJECT#*/}"

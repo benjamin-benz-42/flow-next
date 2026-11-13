@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PR_ID="${1:?Usage: $0 PR_ID COMMENT_ID}"
+COMMENT_ID="${2:?Usage: $0 PR_ID COMMENT_ID}"
+[[ "${ORIGIN_PROJECT:-}" =~ ^[^/[:space:]]+/[^/[:space:]]+$ ]] || { echo "ORIGIN_PROJECT (workspace/repo) is not set" >&2; exit 2; }
+
+# Resolving an already resolved thread succeeds again (bkt reports it and exits 0).
+bkt pr comments resolve "$PR_ID" "$COMMENT_ID" --workspace "${ORIGIN_PROJECT%%/*}" --repo "${ORIGIN_PROJECT#*/}"

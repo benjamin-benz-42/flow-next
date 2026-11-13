@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Windows jq.exe ends lines with CRLF; drop the CR so values match paths and compare equal (#541).
+jq() { command jq "$@" | tr -d '\r'; return "${PIPESTATUS[0]}"; }
+
+PR_ID="${1:?Usage: $0 PR_ID}"
+[[ "$PR_ID" =~ ^[0-9]+$ ]] || { echo "get-bitbucket-comments: pull request id must be a number" >&2; exit 2; }
+[[ "${ORIGIN_PROJECT:-}" =~ ^[^/[:space:]]+/[^/[:space:]]+$ ]] || { echo "get-bitbucket-comments: ORIGIN_PROJECT (workspace/repo) is not set" >&2; exit 2; }
+
+# get-pr-comments for a Bitbucket Cloud pull request: the same JSON keys, read through bkt.
+# A failed or malformed read exits nonzero, never an empty answer.
+#
+# Every top-level comment, inline or general, is a resolvable thread on Bitbucket Cloud; its
+# replies (any depth) are the thread's comments. Deleted and pending (draft) comments are not
+# feedback. Bitbucket has no review bodies. The listing leaves out `inline.outdated`, so an open
+# inline thread's own comment is read for it.
+
+ENDPOINT="/repositories/$ORIGIN_PROJECT/pullrequests/$PR_ID/comments"
+ALL='[]'; PAGE=1
+while :; do
+  LISTED=$(bkt api "$ENDPOINT" -P pagelen=100 -P "page=$PAGE")
+  printf '%s' "$LISTED" | jq -se 'length == 1 and (.[0].values | type) == "array"' >/dev/null \
+    || { echo "get-bitbucket-comments: unreadable comment listing" >&2; exit 1; }
+  ALL=$(printf '%s\n%s' "$ALL" "$LISTED" | jq -cs '.[0] + .[1].values')
+  if ! printf '%s' "$LISTED" | jq -e '.next | type == "string"' >/dev/null; then
+    printf '%s\n%s' "$ALL" "$LISTED" | jq -se '.[1].size == null or .[1].size == (.[0] | length)' >/dev/null \
+      || { echo "get-bitbucket-comments: incomplete comment listing" >&2; exit 1; }
+    break
+  fi
+  PAGE=$((PAGE + 1))
+done
+printf '%s' "$ALL" | jq -e 'all(.[]; type == "object" and (.id | type) == "number" and (.deleted | type) == "boolean")' >/dev/null \
+  || { echo "get-bitbucket-comments: malformed comment row" >&2; exit 1; }
+
+OUTDATED='{}'
+for ID in $(printf '%s' "$ALL" | jq -r '.[] | select(.parent == null and .deleted != true and .pending != true
+                                                     and .resolution == null and .inline != null) | .id'); do
+  ONE=$(bkt api "$ENDPOINT/$ID")
+  OUTDATED=$(printf '%s\n%s' "$OUTDATED" "$ONE" | jq -cs --arg id "$ID" '.[0] + {($id): (.[1].inline.outdated == true)}') \
+    || { echo "get-bitbucket-comments: unreadable comment $ID" >&2; exit 1; }
+done
+
+# Both reach jq on stdin: Linux caps one argument at 128 KiB, which a long review's listing passes.
+{ printf '%s\n' "$ALL"; printf '%s\n' "$OUTDATED"; } | jq -n --argjson pr "$PR_ID" '
+  input as $all | input as $outdated
+  | [$all[] | select(.deleted != true and .pending != true)] as $live
+  | def comment: {id, author: {login: .user.nickname}, body: .content.raw, createdAt: .created_on};
+    def replies($id): [$live[] | select(.parent.id == $id)] | map(comment, (.id as $c | replies($c)[]));
+    def place: {path: .inline.path, line: (.inline.to // .inline.from)};
+  [$live[] | select(.parent == null)] as $threads
+  | {
+    pr_number: $pr,
+    review_threads: [
+      $threads[] | select(.resolution == null) | place as $at
+      | {id, isOutdated: ($outdated[(.id | tostring)] == true),
+         path: $at.path, line: $at.line, originalLine: $at.line, startLine: null, originalStartLine: null,
+         comments: ([comment] + replies(.id))}
+    ],
+    pr_comments: [],
+    review_bodies: [],
+    cross_invocation: {
+      signal: ([$threads[] | select(.resolution != null)] | length > 0),
+      resolved_threads: [$threads[] | select(.resolution != null) | place as $at | {id, path: $at.path, line: $at.line}]
+    }
+  }'

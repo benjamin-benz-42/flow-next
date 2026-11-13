@@ -1,0 +1,19 @@
+{
+  "argv": [
+    "bkt",
+    "pr",
+    "comment",
+    "30",
+    "--parent",
+    "901666329",
+    "--text",
+    "Fixed in the recorded commit.",
+    "--workspace",
+    "flownext",
+    "--repo",
+    "flownext"
+  ],
+  "returncode": 0,
+  "stdout": "\u2713 Commented on pull request #30\n",
+  "stderr": ""
+}
