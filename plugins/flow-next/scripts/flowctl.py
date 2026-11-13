@@ -24002,6 +24002,13 @@ def _bitbucket_approval_rows(head: str, repo: Path) -> tuple[Optional[list], str
     return out, ""
 
 
+def _bitbucket_status_commit(status: Any) -> Optional[str]:
+    """The (possibly abbreviated) commit a build status names through `links.commit.href`."""
+    href = _bitbucket_field(status, "links", "commit", "href")
+    commit = href.rstrip("/").rsplit("/", 1)[-1] if isinstance(href, str) else ""
+    return commit if re.fullmatch(r"[0-9a-f]{7,40}", commit) else None
+
+
 # Bitbucket build states: in progress is pending; failed and stopped are red.
 _BITBUCKET_BUILD_RANK = {"SUCCESSFUL": 0, "INPROGRESS": 1, "FAILED": 2, "STOPPED": 2}
 
@@ -24052,14 +24059,10 @@ def _bitbucket_readiness(repo: Path, origin: "ForgeOrigin", number: int) -> dict
     if not (isinstance(checks, dict) and isinstance(checks.get("mergeable"), str)
             and isinstance(checks.get("mergeStateStatus"), str) and statuses is not None
             and all(isinstance(s, dict) and s.get("state") in _BITBUCKET_BUILD_RANK
-                    and isinstance(_bitbucket_field(s, "links", "commit", "href"), str) for s in statuses)):
+                    and _bitbucket_status_commit(s) for s in statuses)):
         return {**unread, "head_sha": head}
-    # A status names its commit through `links.commit.href`; one for an earlier head says
-    # nothing about this one.
-    here = [s["state"] for s in statuses
-            if isinstance(_bitbucket_field(s, "links", "commit", "href"), str)
-            and (commit := s["links"]["commit"]["href"].rstrip("/").rsplit("/", 1)[-1])
-            and re.fullmatch(r"[0-9a-f]{7,40}", commit) and head.startswith(commit)]
+    # A status for an earlier head says nothing about this one.
+    here = [s["state"] for s in statuses if head.startswith(_bitbucket_status_commit(s))]
     builds = max(here, key=_BITBUCKET_BUILD_RANK.__getitem__) if here else None
     approval = ("changes_requested" if any(p.get("state") == "changes_requested" for p in participants)
                 else "approved" if any(p.get("approved") is True for p in participants) else "none")

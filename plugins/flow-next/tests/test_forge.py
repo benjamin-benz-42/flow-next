@@ -467,8 +467,10 @@ class BitbucketLandReadTests(ForgeTestCase):
         for name, swap in (("mergeability fails", {"pr-mergeability-clean": bb_changed("pr-mergeability-clean", returncode=1, stdout="")}),
                            ("statuses fail", {"pr-statuses-none": bb_changed("pr-statuses-none", returncode=1, stdout="")}),
                            ("unknown build state", {"pr-statuses-none": bb_changed("pr-statuses-none", lambda p: {**p, "values": [{"state": "WEIRD"}]})}),
-                           ("status without a commit link", {"pr-statuses-none": bb_changed("pr-statuses-none", lambda p: {
-                               **p, "values": [{"state": "FAILED", "commit": {"hash": "538fbb9b397b"}}]})}),
+                           *((f"status commit link {name}", {"pr-statuses-none": bb_changed("pr-statuses-none", lambda p, link=link: {
+                               **p, "values": [{"state": "FAILED", "links": link}]})})
+                             for name, link in (("missing", {}), ("empty", {"commit": {"href": ""}}),
+                                                ("without a sha", {"commit": {"href": "https://api.bitbucket.org/2.0/repositories/x/y/commit/not-a-sha"}}))),
                            ("pull request unreadable", {"pr-detail-open": bb_changed("pr-detail-open", returncode=1, stdout="")})):
             with self.subTest(name):
                 f.repo_forge.cache_clear()

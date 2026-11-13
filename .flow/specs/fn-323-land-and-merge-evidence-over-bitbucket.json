@@ -19,19 +19,84 @@
   "plan_review_status": "unknown",
   "plan_reviewed_at": null,
   "ready": true,
-  "review_hash_epoch": {},
-  "review_pending_rounds": {
-    "impl:fn-323-land-and-merge-evidence-over-bitbucket.1": 1
-  },
-  "review_reservations": {
-    "1171e01be07940dd927c5b12e9770873": {
+  "review_attempts": [
+    {
       "artifact_sha256": "fba9716a99dea7bd23920188d7d97fd63ede44bd3aa9a7448f248995c80653e1",
-      "counter_scope": "impl:fn-323-land-and-merge-evidence-over-bitbucket.1",
-      "epoch": 0,
-      "exclusive": true,
+      "backend": "codex",
+      "base_sha": "3c8f3a1d6cb8e64a6f1716cb3ac5f42cf881a323",
+      "counter_kind": "impl",
+      "failure_class": "fanout_abandoned",
+      "finalized": {
+        "digest": "not_applicable",
+        "receipt": "not_applicable",
+        "status": "not_applicable"
+      },
       "forced": false,
-      "review_type": "impl"
+      "hash_epoch": 0,
+      "head_sha": "0f7d9d678a6e31db7b39533ed643cb7745442324",
+      "head_sha_observed": true,
+      "kind": "impl",
+      "outcome": "transport_failure",
+      "output_bytes": 85,
+      "output_sha256": "6ea4de7239adcef700fcf360528c3918564fc4300515f3a62b9a089c94e74f20",
+      "reservation_id": "1171e01be07940dd927c5b12e9770873",
+      "round_consumed": false,
+      "scope": "impl:fn-323-land-and-merge-evidence-over-bitbucket.1",
+      "superseded_by": null,
+      "task": "fn-323-land-and-merge-evidence-over-bitbucket.1",
+      "timestamp": "2026-11-13T11:16:26.128095Z",
+      "verdict": null
+    },
+    {
+      "artifact_sha256": "23ce42e717a8406f1b8c9f98fdd3e8500583b1a3364eb0eaddbf3980e9960a11",
+      "backend": "codex",
+      "base_sha": "0f7d9d678a6e31db7b39533ed643cb7745442324",
+      "counter_kind": "impl",
+      "effort": "high",
+      "failure_class": null,
+      "finalized": {
+        "digest": "complete",
+        "receipt": "complete",
+        "status": "not_applicable"
+      },
+      "findings_digest": {
+        "backend": "codex",
+        "digest_truncated": false,
+        "items": [
+          {
+            "chainRoot": "finding-db95a7b7ea91eb5779a5e61cf4b0a988",
+            "classification": "introduced",
+            "findingId": "finding-db95a7b7ea91eb5779a5e61cf4b0a988",
+            "firstSeenThisRound": true,
+            "severity": "P1",
+            "status": "open"
+          }
+        ],
+        "reviewKind": "implementation"
+      },
+      "forced": false,
+      "hash_epoch": 0,
+      "head_sha": "efdcc660d8c5ac54759ea67a3aeeb4dfaa90eee5",
+      "head_sha_observed": true,
+      "kind": "impl",
+      "model": "gpt-6.1-sol",
+      "outcome": "verdict",
+      "output_bytes": 1041,
+      "output_sha256": "e026f649fea18bf396d8b2a30d730e51f26b521728c01cff11458e217f5c109c",
+      "reservation_id": "33e9c1a6a50f4ed4954444e7488c2218",
+      "round_consumed": true,
+      "scope": "impl:fn-323-land-and-merge-evidence-over-bitbucket.1",
+      "superseded_by": null,
+      "task": "fn-323-land-and-merge-evidence-over-bitbucket.1",
+      "timestamp": "2026-11-13T11:18:43.709452Z",
+      "verdict": "NEEDS_WORK"
     }
+  ],
+  "review_hash_epoch": {},
+  "review_pending_rounds": {},
+  "review_reservations": {},
+  "review_transport_failures": {
+    "impl:fn-323-land-and-merge-evidence-over-bitbucket.1": 0
   },
   "spec_path": ".flow/specs/fn-323-land-and-merge-evidence-over-bitbucket.md",
   "status": "open",
@@ -47,5 +112,5 @@
     "mergeBaseTracker": null,
     "url": null
   },
-  "updated_at": "2026-11-13T10:13:09.047157Z"
+  "updated_at": "2026-11-13T11:18:43.712802Z"
 }
