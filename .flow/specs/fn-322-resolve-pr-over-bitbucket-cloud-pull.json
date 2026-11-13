@@ -1,7 +1,7 @@
 {
   "branch_name": "fn-322-resolve-pr-over-bitbucket-cloud-pull",
-  "completion_review_status": "unknown",
-  "completion_reviewed_at": null,
+  "completion_review_status": "not_required",
+  "completion_reviewed_at": "2026-11-13T09:43:14.704711Z",
   "created_at": "2026-11-13T08:48:15.702171Z",
   "default_impl": null,
   "default_review": null,
@@ -11,7 +11,7 @@
   ],
   "id": "fn-322-resolve-pr-over-bitbucket-cloud-pull",
   "impl_review_rounds": {
-    "fn-322-resolve-pr-over-bitbucket-cloud-pull.1": 1
+    "fn-322-resolve-pr-over-bitbucket-cloud-pull.1": 0
   },
   "next_task": 1,
   "no_plan": true,
@@ -87,9 +87,79 @@
       "task": "fn-322-resolve-pr-over-bitbucket-cloud-pull.1",
       "timestamp": "2026-11-13T09:39:24.714386Z",
       "verdict": "NEEDS_WORK"
+    },
+    {
+      "artifact_sha256": "30c29fc36cb1fe37b5f99e61d070a1ad199b5e81cd88903e6f87fe1c31e550bd",
+      "backend": "codex",
+      "base_sha": "7efdb740ac986583794465ad2b3576ac7012a438",
+      "counter_kind": "impl",
+      "effort": "high",
+      "failure_class": null,
+      "finalized": {
+        "digest": "complete",
+        "receipt": "complete",
+        "status": "not_applicable"
+      },
+      "findings_digest": {
+        "backend": "codex",
+        "digest_truncated": false,
+        "items": [
+          {
+            "chainRoot": "finding-e968dccf1026cf874cb285f3200c5003",
+            "classification": "introduced",
+            "findingId": "finding-e968dccf1026cf874cb285f3200c5003",
+            "firstSeenThisRound": false,
+            "severity": "P1",
+            "status": "fixed"
+          },
+          {
+            "chainRoot": "finding-fb0a041379ee89fc54cd2ca8f084c6d5",
+            "classification": "introduced",
+            "findingId": "finding-fb0a041379ee89fc54cd2ca8f084c6d5",
+            "firstSeenThisRound": false,
+            "severity": "P2",
+            "status": "fixed"
+          },
+          {
+            "chainRoot": "finding-3fc007d8ceaa9e3018f14b6f6dbc2717",
+            "classification": "introduced",
+            "findingId": "finding-3fc007d8ceaa9e3018f14b6f6dbc2717",
+            "firstSeenThisRound": false,
+            "severity": "P2",
+            "status": "fixed"
+          },
+          {
+            "chainRoot": "finding-5141e606ed081cce84268dd9b06c8485",
+            "classification": "introduced",
+            "findingId": "finding-5141e606ed081cce84268dd9b06c8485",
+            "firstSeenThisRound": false,
+            "severity": "P2",
+            "status": "fixed"
+          }
+        ],
+        "reviewKind": "implementation"
+      },
+      "forced": false,
+      "hash_epoch": 0,
+      "head_sha": "a2d068105e39dc63b8588a597ee0234bc3b07b69",
+      "head_sha_observed": true,
+      "kind": "impl",
+      "model": "gpt-6.1-sol",
+      "outcome": "verdict",
+      "output_bytes": 1249,
+      "output_sha256": "1a05f9415f0474537c10fd9499e3371ec90d0d18ca5d58825dcd65ac39e90474",
+      "reservation_id": "9649e52c57bb45c8bae2dcdd111a9465",
+      "round_consumed": true,
+      "scope": "impl:fn-322-resolve-pr-over-bitbucket-cloud-pull.1",
+      "superseded_by": null,
+      "task": "fn-322-resolve-pr-over-bitbucket-cloud-pull.1",
+      "timestamp": "2026-11-13T09:42:58.582244Z",
+      "verdict": "SHIP"
     }
   ],
-  "review_hash_epoch": {},
+  "review_hash_epoch": {
+    "impl:fn-322-resolve-pr-over-bitbucket-cloud-pull.1": 1
+  },
   "review_pending_rounds": {},
   "review_reservations": {},
   "review_transport_failures": {
@@ -109,5 +179,5 @@
     "mergeBaseTracker": null,
     "url": null
   },
-  "updated_at": "2026-11-13T09:39:24.717631Z"
+  "updated_at": "2026-11-13T09:43:14.704869Z"
 }
